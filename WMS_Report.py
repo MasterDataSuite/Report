@@ -5,7 +5,6 @@ from openpyxl.utils import column_index_from_string
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
-
 st.title("📦 WMS Performance Report")
 
 uploaded_file = st.file_uploader("Upload WMS Report", type=["xlsx"])
@@ -48,11 +47,24 @@ if uploaded_file:
     avg_per_min = sheet.cell(row=63, column=368).value
     picking_finish = sheet.cell(row=67, column=362).value
     
+    # Helper function to convert time to seconds
+    def time_to_seconds(x):
+        try:
+            if pd.isna(x) or x == '':
+                return 0
+            if hasattr(x, 'hour'):  # datetime.time object
+                return x.hour * 3600 + x.minute * 60 + x.second
+            # String format "H:MM:SS"
+            parts = str(x).split(':')
+            return sum(int(i) * 60**(2-idx) for idx, i in enumerate(parts))
+        except:
+            return 0
+    
     # Find max values for progress bars
-    max_time = df['Picking Time'].apply(lambda x: sum(int(i) * 60**(2-idx) for idx, i in enumerate(str(x).split(':'))) if x else 0).max()
-    max_requests = df['Requests fulfilled'].apply(lambda x: float(x) if x else 0).max()
-    max_kg = df['Kilograms'].apply(lambda x: float(x) if x else 0).max()
-    max_l = df['Liters'].apply(lambda x: float(x) if x else 0).max()
+    max_time = df['Picking Time'].apply(time_to_seconds).max()
+    max_requests = df['Requests fulfilled'].apply(lambda x: float(x) if x and not pd.isna(x) else 0).max()
+    max_kg = df['Kilograms'].apply(lambda x: float(x) if x and not pd.isna(x) else 0).max()
+    max_l = df['Liters'].apply(lambda x: float(x) if x and not pd.isna(x) else 0).max()
     
     # Color function for Avg per min
     def get_avg_color(val):
@@ -165,14 +177,19 @@ if uploaded_file:
             elif col_name == 'Picking Time':
                 # Blue progress bar
                 try:
-                    time_parts = str(val).split(':')
-                    time_secs = sum(int(i) * 60**(2-idx) for idx, i in enumerate(time_parts))
+                    time_secs = time_to_seconds(val)
                     pct = (time_secs / max_time * 100) if max_time > 0 else 0
+                    # Format display
+                    if hasattr(val, 'hour'):
+                        display_val = f"{val.hour}:{val.minute:02d}:{val.second:02d}"
+                    else:
+                        display_val = val
                 except:
                     pct = 0
+                    display_val = val
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
-                    <div class="progress-text">{val}</div>
+                    <div class="progress-text">{display_val}</div>
                 </td>'''
             elif col_name == 'Requests fulfilled':
                 try:
