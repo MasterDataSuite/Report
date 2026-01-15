@@ -5,6 +5,7 @@ from openpyxl.utils import column_index_from_string
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
+
 st.title("📦 WMS Performance Report")
 
 uploaded_file = st.file_uploader("Upload WMS Report", type=["xlsx"])
@@ -240,6 +241,10 @@ if uploaded_file:
     
     html += '</table>'
     
+    # Format statistics values
+    avg_req_display = f"{float(avg_requests_min):.2f}" if avg_requests_min else ""
+    avg_per_min_display = f"{float(avg_per_min):.2f}" if avg_per_min else ""
+    
     # Statistics section
     html += f'''
     <div style="margin-top: 40px;">
@@ -258,12 +263,12 @@ if uploaded_file:
         <tr>
             <td>{total_picking_time}</td>
             <td>{total_requests}</td>
-            <td>{float(avg_requests_min):.2f if avg_requests_min else ""}</td>
+            <td>{avg_req_display}</td>
             <td>{total_kg}</td>
             <td>{total_l}</td>
             <td>{avg_kg_min}</td>
             <td>{avg_l_min}</td>
-            <td>{float(avg_per_min):.2f if avg_per_min else ""}</td>
+            <td>{avg_per_min_display}</td>
         </tr>
     </table>
     <div style="margin-top: 30px;">
