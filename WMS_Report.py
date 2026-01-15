@@ -102,6 +102,7 @@ if uploaded_file:
             padding: 8px;
             border: 1px solid #B4C6E7;
             text-align: center;
+            color: black;
         }
         .wms-table tr:nth-child(odd) {
             background-color: #D6DCE4;
@@ -111,7 +112,7 @@ if uploaded_file:
         }
         .picker-name {
             background-color: #C65B5B !important;
-            color: white;
+            color: black;
             font-weight: bold;
             text-align: left !important;
         }
@@ -129,6 +130,7 @@ if uploaded_file:
             position: relative;
             z-index: 1;
             padding: 8px;
+            color: black;
         }
         .stats-table {
             border-collapse: collapse;
@@ -146,17 +148,20 @@ if uploaded_file:
             border: 1px solid #B4C6E7;
             background-color: #D6DCE4;
             text-align: center;
+            color: black;
         }
         .stats-title {
             font-size: 18px;
             text-decoration: underline;
             margin-bottom: 10px;
+            color: black;
         }
         .date-box {
             background-color: #FFFF00;
             padding: 5px 15px;
             border: 1px solid #000;
             display: inline-block;
+            color: black;
         }
     </style>
     '''
