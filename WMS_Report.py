@@ -187,7 +187,7 @@ if uploaded_file:
                     pct = (time_secs / max_time * 100) if max_time > 0 else 0
                     # Format display
                     if hasattr(val, 'hour'):
-                        display_val = f"{val.hour}:{val.minute:02d}:{val.second:02d}"
+                        display_val = f"{val.seconds // 3600}:{(val.seconds % 3600) // 60:02d}:{val.seconds % 60:02d}"
                     else:
                         display_val = val
                 except:
@@ -291,3 +291,4 @@ if uploaded_file:
 
 else:
     st.info("👆 Upload your WMS report file")
+
