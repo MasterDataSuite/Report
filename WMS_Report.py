@@ -6,14 +6,18 @@ st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
 st.title("📦 WMS Performance Report")
 
-uploaded_file = st.file_uploader("Upload WMS Raw Data Export", type=["xlsx", "csv"])
+# Google Sheet ID
+SHEET_ID = "1gU5p4OK_eRkGiTGtn7CYm8aSzN7nxaCCjV8uSboWWKk"
 
-if uploaded_file:
-    # Read raw data
-    if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file, sheet_name='Input')
+@st.cache_data(ttl=60)  # Cache for 60 seconds
+def load_data():
+    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+    df = pd.read_csv(url)
+    return df
+
+# Load data
+try:
+    df = load_data()
     
     # Convert date columns
     df['Date'] = pd.to_datetime(df['Date']).dt.date
@@ -305,6 +309,12 @@ if uploaded_file:
     '''
     
     st.markdown(html, unsafe_allow_html=True)
+    
+    # Add refresh button
+    if st.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
 
-else:
-    st.info("👆 Upload your WMS raw data export file")
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
