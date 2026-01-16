@@ -83,12 +83,16 @@ try:
     # Get list of files
     files = get_files_list()
     
-    # Create file selector
-    file_names = [f['name'] for f in files]
-    selected_file_name = st.selectbox("🏪 Select Store", file_names)
+    # Create file selector (remove .xlsx from display)
+    file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
+    selected_store = st.selectbox("🏪 Select Store", [""] + file_names, index=0)
+    
+    if not selected_store:
+        st.info("👆 Please select a store to continue")
+        st.stop()
     
     # Get the selected file's ID
-    selected_file = next(f for f in files if f['name'] == selected_file_name)
+    selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
     
     # Load data from selected file
     df = load_data(selected_file['id'])
@@ -100,7 +104,14 @@ try:
     
     # Date selector
     unique_dates = sorted(df['Date'].unique())
-    selected_date = st.selectbox("📅 Select Date", unique_dates, format_func=lambda x: x.strftime("%d/%m"))
+    selected_date = st.selectbox("📅 Select Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+    
+    if not selected_date:
+        st.info("👆 Please select a date to continue")
+        st.stop()
+    
+    # Convert selected_date back to date object
+    selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
     
     # Filter by date
     day_df = df[df['Date'] == selected_date].copy()
