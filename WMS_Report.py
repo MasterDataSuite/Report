@@ -8,6 +8,24 @@ import io
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        st.title("🔒 Login")
+        password = st.text_input("Enter password:", type="password")
+        if st.button("Login"):
+            if password == st.secrets["password"]:  # Change this
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Wrong password")
+        return False
+    return True
+
+if not check_password():
+    st.stop()
 
 
 st.title("📦 WMS Performance Report")
@@ -355,3 +373,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
