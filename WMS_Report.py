@@ -16,7 +16,7 @@ def check_password():
         st.title("🔒 Login")
         password = st.text_input("Enter password:", type="password")
         if st.button("Login"):
-            if password == st.secrets["password"]:  # Change this
+            if password == st.secrets["password"]:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
@@ -34,7 +34,7 @@ st.title("📦 WMS Performance Report")
 FOLDER_ID = st.secrets["folder_id"]
 
 @st.cache_data(ttl=60)
-def load_data():
+def get_files_list():
     # Create credentials from Streamlit secrets
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
@@ -52,9 +52,18 @@ def load_data():
     if not files:
         raise Exception("No Excel files found in the folder")
     
-    # Get the first xlsx file
-    file_id = files[0]['id']
-    file_name = files[0]['name']
+    return files
+
+@st.cache_data(ttl=60)
+def load_data(file_id):
+    # Create credentials from Streamlit secrets
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
+    )
+    
+    # Build the Drive service
+    service = build('drive', 'v3', credentials=credentials)
     
     # Download the file
     request = service.files().get_media(fileId=file_id)
@@ -67,12 +76,22 @@ def load_data():
     file_buffer.seek(0)
     df = pd.read_excel(file_buffer, sheet_name='Input')
     
-    return df, file_name
+    return df
 
 # Load data
 try:
-    df, file_name = load_data()
-    st.caption(f"📁 Reading from: {file_name}")
+    # Get list of files
+    files = get_files_list()
+    
+    # Create file selector
+    file_names = [f['name'] for f in files]
+    selected_file_name = st.selectbox("🏪 Select Store", file_names)
+    
+    # Get the selected file's ID
+    selected_file = next(f for f in files if f['name'] == selected_file_name)
+    
+    # Load data from selected file
+    df = load_data(selected_file['id'])
     
     # Convert date columns
     df['Date'] = pd.to_datetime(df['Date']).dt.date
@@ -373,5 +392,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
