@@ -31,7 +31,7 @@ if not check_password():
 st.title("📦 WMS Performance Report")
 
 # Google Drive folder ID
-FOLDER_ID = "1NG1YIDFaUkusPoD9usemqxy8s4Y8xqRI"
+FOLDER_ID = st.secrets["folder_id"]
 
 @st.cache_data(ttl=60)
 def load_data():
@@ -373,4 +373,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
