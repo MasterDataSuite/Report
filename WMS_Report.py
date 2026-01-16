@@ -5,16 +5,15 @@ from datetime import timedelta
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
 
-
 st.title("📦 WMS Performance Report")
 
-# Google Sheet ID
-SHEET_ID = "1gU5p4OK_eRkGiTGtn7CYm8aSzN7nxaCCjV8uSboWWKk"
+# Google Drive file ID
+FILE_ID = "1v6i-YIVvJ_1wdeO21295tuEAKVBITy1s"
 
 @st.cache_data(ttl=60)  # Cache for 60 seconds
 def load_data():
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
-    df = pd.read_csv(url)
+    url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
+    df = pd.read_excel(url, sheet_name='Input')
     return df
 
 # Load data
@@ -25,10 +24,6 @@ try:
     df['Date'] = pd.to_datetime(df['Date']).dt.date
     df['Action start'] = pd.to_datetime(df['Action start'])
     df['Action completion'] = pd.to_datetime(df['Action completion'])
-    
-    # Convert numeric columns (they may come as strings from CSV)
-    df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0)
-    df['Relationship'] = pd.to_numeric(df['Relationship'], errors='coerce').fillna(0)
     
     # Date selector
     unique_dates = sorted(df['Date'].unique())
