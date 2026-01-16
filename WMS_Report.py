@@ -4,6 +4,8 @@ from datetime import timedelta
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
+
+
 st.title("📦 WMS Performance Report")
 
 # Google Sheet ID
@@ -23,6 +25,10 @@ try:
     df['Date'] = pd.to_datetime(df['Date']).dt.date
     df['Action start'] = pd.to_datetime(df['Action start'])
     df['Action completion'] = pd.to_datetime(df['Action completion'])
+    
+    # Convert numeric columns (they may come as strings from CSV)
+    df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0)
+    df['Relationship'] = pd.to_numeric(df['Relationship'], errors='coerce').fillna(0)
     
     # Date selector
     unique_dates = sorted(df['Date'].unique())
