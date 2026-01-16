@@ -1,24 +1,60 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import io
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
 
+
 st.title("📦 WMS Performance Report")
 
-# Google Drive file ID
-FILE_ID = "1lY0YO9VvB9h2wtENLrBQpCYOmNDlV33I"
+# Google Drive folder ID
+FOLDER_ID = "1NG1YIDFaUkusPoD9usemqxy8s4Y8xqRI"
 
-@st.cache_data(ttl=60)  # Cache for 60 seconds
+@st.cache_data(ttl=60)
 def load_data():
-    url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-    df = pd.read_excel(url, sheet_name='Input')
-    return df
+    # Create credentials from Streamlit secrets
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
+    )
+    
+    # Build the Drive service
+    service = build('drive', 'v3', credentials=credentials)
+    
+    # Find xlsx files in the folder
+    query = f"'{FOLDER_ID}' in parents and (mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='application/vnd.ms-excel')"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    files = results.get('files', [])
+    
+    if not files:
+        raise Exception("No Excel files found in the folder")
+    
+    # Get the first xlsx file
+    file_id = files[0]['id']
+    file_name = files[0]['name']
+    
+    # Download the file
+    request = service.files().get_media(fileId=file_id)
+    file_buffer = io.BytesIO()
+    downloader = MediaIoBaseDownload(file_buffer, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    
+    file_buffer.seek(0)
+    df = pd.read_excel(file_buffer, sheet_name='Input')
+    
+    return df, file_name
 
 # Load data
 try:
-    df = load_data()
+    df, file_name = load_data()
+    st.caption(f"📁 Reading from: {file_name}")
     
     # Convert date columns
     df['Date'] = pd.to_datetime(df['Date']).dt.date
@@ -319,4 +355,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
