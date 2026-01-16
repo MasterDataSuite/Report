@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
 
-st.set_page_config(page_title="WMS Performance Report", layout="wide")
+st.set_page_config(page_title="WMS Internal Transfers Report", layout="wide")
 
 def check_password():
     if "authenticated" not in st.session_state:
@@ -404,4 +404,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
