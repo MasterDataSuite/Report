@@ -220,19 +220,19 @@ try:
         # Clamp value between 0 and 15 for color scaling
         val = max(0, min(15, val))
         
-        # 0 = soft red, 7.5 = soft yellow, 15 = soft green
+        # 0 = soft red, 7.5 = soft yellow/orange, 15 = soft green
         if val <= 7.5:
             # Red to Yellow (0 to 7.5)
             ratio = val / 7.5
-            r = int(244 + (255 - 244) * ratio)
-            g = int(204 + (235 - 204) * ratio)
-            b = int(204 + (156 - 204) * ratio)
+            r = int(235 + (255 - 235) * ratio)
+            g = int(150 + (200 - 150) * ratio)
+            b = int(150 + (100 - 150) * ratio)
         else:
             # Yellow to Green (7.5 to 15)
             ratio = (val - 7.5) / 7.5
-            r = int(255 + (198 - 255) * ratio)
-            g = int(235 + (239 - 235) * ratio)
-            b = int(156 + (206 - 156) * ratio)
+            r = int(255 + (144 - 255) * ratio)
+            g = int(200 + (220 - 200) * ratio)
+            b = int(100 + (144 - 100) * ratio)
         
         return f'#{r:02X}{g:02X}{b:02X}'
     
@@ -443,6 +443,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
