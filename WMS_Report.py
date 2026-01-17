@@ -31,6 +31,16 @@ if not check_password():
 
 st.title("📦 WMS Internal Transfers Report")
 
+
+
+st.markdown("""
+    <style>
+    div[data-baseweb="select"] {
+        width: 250px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Google Drive folder ID
 FOLDER_ID = st.secrets["folder_id"]
 
@@ -443,6 +453,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
