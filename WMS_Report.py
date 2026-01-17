@@ -181,6 +181,8 @@ try:
         'Liters': 'sum'
     }).reset_index()
     picker_stats.columns = ['Name', 'Requests fulfilled', 'Kilograms', 'Liters']
+    picker_stats['Name'] = picker_stats['Name'].str.title()
+    picker_times['Name'] = picker_times['Name'].str.title()
     
     # Merge with picking times
     report = picker_stats.merge(picker_times, on='Name')
@@ -432,6 +434,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
