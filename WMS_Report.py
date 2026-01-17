@@ -254,7 +254,7 @@ try:
             background-color: #EDEDED;
         }
         .picker-name {
-            background-color: #5B9BD5 !important;
+            background-color: #D6DCE4 !important;
             color: black;
             font-weight: bold;
             text-align: left !important;
@@ -434,6 +434,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
