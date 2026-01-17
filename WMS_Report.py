@@ -401,7 +401,7 @@ try:
                 <th>Total L</th>
                 <th>Kg/min</th>
                 <th>L/min</th>
-                <th>Combined/min</th>
+                <th>Weight/min</th>
             </tr>
             <tr>
                 <td>{total_picking_time_str}</td>
@@ -432,6 +432,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
