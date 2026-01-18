@@ -219,9 +219,9 @@ try:
                     key="sort_order"
                 )
             
-            if sort_col_display != st.session_state.dept_sort_col or (sort_order == "Ascending ↑") != st.session_state.dept_sort_asc:
+            if sort_col_display != st.session_state.dept_sort_col or (sort_order == "Smallest ↑") != st.session_state.dept_sort_asc:
                 st.session_state.dept_sort_col = sort_col_display
-                st.session_state.dept_sort_asc = (sort_order == "Ascending ↑")
+                st.session_state.dept_sort_asc = (sort_order == "Smallest ↑")
                 st.rerun()
             
             html = '''
@@ -345,6 +345,11 @@ try:
         # ============== WORKER VIEW ==============
         elif view_type == "Worker View":
             
+            # Initialize sort state for worker view
+            if 'worker_sort_col' not in st.session_state:
+                st.session_state.worker_sort_col = 'Avg per min'
+                st.session_state.worker_sort_asc = False
+            
             unique_actions = day_df.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
@@ -373,6 +378,15 @@ try:
             
             report['Picking Time'] = report['picking_time'].apply(format_timedelta)
             
+            # Sort by selected column
+            sort_col = st.session_state.worker_sort_col
+            sort_asc = st.session_state.worker_sort_asc
+            
+            if sort_col == 'Picking Time':
+                report = report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
+            elif sort_col in report.columns:
+                report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
+            
             report = report[['Name', 'Picking Time', 'Requests fulfilled', 'Requests per minute', 
                              'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Avg per min', 'picking_time', 'picking_minutes']]
             
@@ -380,6 +394,29 @@ try:
             max_requests = report['Requests fulfilled'].max()
             max_kg = report['Kilograms'].max()
             max_l = report['Liters'].max()
+            
+            # Sort controls in one row
+            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Avg per min']
+            col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
+            with col_sort1:
+                sort_col_display = st.selectbox(
+                    "Sort by",
+                    sort_options,
+                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 7,
+                    key="worker_sort_select"
+                )
+            with col_sort2:
+                sort_order = st.selectbox(
+                    "Order",
+                    ["Largest ↓", "Smallest ↑"],
+                    index=0 if not st.session_state.worker_sort_asc else 1,
+                    key="worker_sort_order"
+                )
+            
+            if sort_col_display != st.session_state.worker_sort_col or (sort_order == "Smallest ↑") != st.session_state.worker_sort_asc:
+                st.session_state.worker_sort_col = sort_col_display
+                st.session_state.worker_sort_asc = (sort_order == "Smallest ↑")
+                st.rerun()
             
             html = '''
             <style>
@@ -576,8 +613,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
-
-
