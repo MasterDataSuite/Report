@@ -123,7 +123,7 @@ try:
     col1, col2, col3, col4, col_empty = st.columns([150, 150, 80, 110, 700])
     
     with col1:
-        mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Analytics Mode"], index=0)
+        mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Comparison Mode", "Analytics Mode"], index=0)
     
     with col2:
         view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
@@ -564,12 +564,18 @@ try:
                 st.rerun()
     
     # ============== ANALYTICS MODE ==============
+    # ============== COMPARISON MODE ==============
+    elif mode == "Comparison Mode":
+        st.info("🚧 Comparison Mode coming soon! This will include:\n\n- Property vs Property\n- All Properties Overview\n- Departments per Property\n- Workers per Property")
+    
+    # ============== ANALYTICS MODE ==============
     elif mode == "Analytics Mode":
-        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Property vs Property comparison\n- All Properties Overview\n- Trends over time\n- Worker comparisons")
+        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Trends over time")
 
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
