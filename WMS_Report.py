@@ -347,7 +347,7 @@ try:
             
             # Initialize sort state for worker view
             if 'worker_sort_col' not in st.session_state:
-                st.session_state.worker_sort_col = 'Avg per min'
+                st.session_state.worker_sort_col = 'Weight per min'
                 st.session_state.worker_sort_asc = False
             
             unique_actions = day_df.groupby(['Name', 'Action Code']).agg({
@@ -374,7 +374,7 @@ try:
             report['Requests per minute'] = report['Requests fulfilled'] / report['picking_minutes']
             report['Kg per min'] = report['Kilograms'] / report['picking_minutes']
             report['L per min'] = report['Liters'] / report['picking_minutes']
-            report['Avg per min'] = report['Kg per min'] + report['L per min']
+            report['Weight per min'] = report['Kg per min'] + report['L per min']
             
             report['Picking Time'] = report['picking_time'].apply(format_timedelta)
             
@@ -384,11 +384,13 @@ try:
             
             if sort_col == 'Picking Time':
                 report = report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
+            elif sort_col == 'Weight per min':
+                report = report.sort_values('Weight per min', ascending=sort_asc).reset_index(drop=True)
             elif sort_col in report.columns:
                 report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
             report = report[['Name', 'Picking Time', 'Requests fulfilled', 'Requests per minute', 
-                             'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Avg per min', 'picking_time', 'picking_minutes']]
+                             'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Weight per min', 'picking_time', 'picking_minutes']]
             
             max_time = report['picking_time'].max().total_seconds()
             max_requests = report['Requests fulfilled'].max()
@@ -396,7 +398,7 @@ try:
             max_l = report['Liters'].max()
             
             # Sort controls in one row
-            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Avg per min']
+            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Weight per min']
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
@@ -500,9 +502,7 @@ try:
                 ('Requests per minute', '150px'),
                 ('Kilograms', '100px'),
                 ('Liters', '100px'),
-                ('Kg per min', '100px'),
-                ('L per min', '100px'),
-                ('Avg per min', '100px')
+                ('Weight per min', '100px')
             ]
             
             html += '<table class="wms-table">'
@@ -541,11 +541,9 @@ try:
                     <div class="progress-text">{row["Liters"]:.2f}</div>
                 </td>'''
                 
-                html += f'<td>{row["Kg per min"]:.2f}</td>'
-                html += f'<td>{row["L per min"]:.2f}</td>'
                 
-                color = get_avg_color(row['Avg per min'])
-                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Avg per min"]:.3f}</td>'
+                color = get_avg_color(row['Weight per min'])
+                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:.3f}</td>'
                 
                 html += '</tr>'
             
@@ -613,3 +611,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
