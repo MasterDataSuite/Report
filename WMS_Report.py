@@ -160,6 +160,11 @@ try:
         # ============== DEPARTMENT VIEW ==============
         if view_type == "Department View":
             
+            # Initialize sort state
+            if 'dept_sort_col' not in st.session_state:
+                st.session_state.dept_sort_col = 'Total Weight'
+                st.session_state.dept_sort_asc = False
+            
             unique_actions_dept = day_df.groupby(['Cost Center', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
@@ -180,8 +185,14 @@ try:
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
             dept_report['Total Picking Time'] = dept_report['picking_time'].apply(format_timedelta)
             
-            # Sort by Total Weight descending
-            dept_report = dept_report.sort_values('Total Weight', ascending=False).reset_index(drop=True)
+            # Sort by selected column
+            sort_col = st.session_state.dept_sort_col
+            sort_asc = st.session_state.dept_sort_asc
+            
+            if sort_col == 'Total Picking Time':
+                dept_report = dept_report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
+            elif sort_col in dept_report.columns:
+                dept_report = dept_report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
             max_orders = dept_report['# of Orders'].max()
             max_requests = dept_report['Unique Item Requests'].max()
@@ -189,6 +200,23 @@ try:
             max_l = dept_report['Liters'].max()
             max_weight = dept_report['Total Weight'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
+            
+            # Sort buttons row
+            st.markdown("**Sort by:**")
+            sort_cols = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            cols = st.columns(len(sort_cols))
+            for i, col_name in enumerate(sort_cols):
+                with cols[i]:
+                    arrow = ""
+                    if st.session_state.dept_sort_col == col_name:
+                        arrow = " ↑" if st.session_state.dept_sort_asc else " ↓"
+                    if st.button(f"{col_name}{arrow}", key=f"sort_{col_name}", use_container_width=True):
+                        if st.session_state.dept_sort_col == col_name:
+                            st.session_state.dept_sort_asc = not st.session_state.dept_sort_asc
+                        else:
+                            st.session_state.dept_sort_col = col_name
+                            st.session_state.dept_sort_asc = False
+                        st.rerun()
             
             html = '''
             <style>
@@ -536,4 +564,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
