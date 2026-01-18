@@ -717,7 +717,8 @@ try:
             }).reset_index()
             total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
             picking_finish_1 = df1_filtered['Action completion'].max()
-            total_orders_1 = df1_filtered['Action Code'].nunique()
+            # Sum of unique orders per department (matches Department View total)
+            total_orders_1 = df1_filtered.groupby('Cost Center')['Action Code'].nunique().sum()
             total_requests_1 = len(df1_filtered)
             total_kg_1 = df1_filtered['Kg'].sum()
             total_liters_1 = df1_filtered['Liters'].sum()
@@ -730,7 +731,8 @@ try:
             }).reset_index()
             total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
             picking_finish_2 = df2_filtered['Action completion'].max()
-            total_orders_2 = df2_filtered['Action Code'].nunique()
+            # Sum of unique orders per department (matches Department View total)
+            total_orders_2 = df2_filtered.groupby('Cost Center')['Action Code'].nunique().sum()
             total_requests_2 = len(df2_filtered)
             total_kg_2 = df2_filtered['Kg'].sum()
             total_liters_2 = df2_filtered['Liters'].sum()
@@ -889,7 +891,6 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
 
 
 
