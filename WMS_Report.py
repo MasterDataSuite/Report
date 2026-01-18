@@ -34,17 +34,10 @@ st.title("📦 WMS Performance Report")
 st.markdown("""
     <style>
     div[data-baseweb="select"] {
-        width: 250px;
+        width: 200px;
     }
     </style>
 """, unsafe_allow_html=True)
-
-# Mode selection
-mode = st.selectbox("🎯 Select Mode", ["", "Daily Monitor", "Analytics Mode"], index=0)
-
-if not mode:
-    st.info("👆 Please select a mode to continue")
-    st.stop()
 
 # Google Drive folder ID
 FOLDER_ID = st.secrets["folder_id"]
@@ -134,34 +127,36 @@ def get_avg_color(val):
 # ============== DAILY MONITOR MODE ==============
 if mode == "Daily Monitor":
     
-    # View selection
-    view_type = st.selectbox("👁️ Select View", ["", "Department View", "Worker View"], index=0)
-    
-    if not view_type:
-        st.info("👆 Please select a view type to continue")
-        st.stop()
-    
     try:
         files = get_files_list()
         file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
-        selected_store = st.selectbox("🏪 Select Store", [""] + file_names, index=0)
         
-        if not selected_store:
-            st.info("👆 Please select a store to continue")
-            st.stop()
+        # All dropdowns in one row
+        col1, col2, col3, col4 = st.columns(4)
         
-        selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-        df = load_data(selected_file['id'])
+        with col1:
+            mode = st.selectbox("🎯 Mode", ["Daily Monitor", "Analytics Mode"], index=0)
         
-        df['Date'] = pd.to_datetime(df['Date']).dt.date
-        df['Action start'] = pd.to_datetime(df['Action start'])
-        df['Action completion'] = pd.to_datetime(df['Action completion'])
+        with col2:
+            view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
         
-        unique_dates = sorted(df['Date'].unique())
-        selected_date = st.selectbox("📅 Select Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+        with col3:
+            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
         
-        if not selected_date:
-            st.info("👆 Please select a date to continue")
+        with col4:
+            if selected_store:
+                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+                df = load_data(selected_file['id'])
+                df['Date'] = pd.to_datetime(df['Date']).dt.date
+                df['Action start'] = pd.to_datetime(df['Action start'])
+                df['Action completion'] = pd.to_datetime(df['Action completion'])
+                unique_dates = sorted(df['Date'].unique())
+                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                selected_date = st.selectbox("📅 Date", [""], index=0)
+        
+        if not view_type or not selected_store or not selected_date:
+            st.info("👆 Please make all selections to continue")
             st.stop()
         
         selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
@@ -231,8 +226,7 @@ if mode == "Daily Monitor":
                     background-color: #EDEDED;
                 }
                 .dept-name {
-                    background-color: #4472C4 !important;
-                    color: white;
+                    color: black;
                     font-weight: bold;
                     text-align: left !important;
                 }
@@ -543,3 +537,4 @@ if mode == "Daily Monitor":
 # ============== ANALYTICS MODE ==============
 elif mode == "Analytics Mode":
     st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Property vs Property comparison\n- All Properties Overview\n- Trends over time\n- Worker comparisons")
+
