@@ -922,129 +922,63 @@ try:
             property_metrics = []
             for prop_name, df in all_property_data.items():
                 df_filtered = df[df['Date'].isin(comparison_dates)].copy()
-
-                # Calculate Kg and Liters
                 df_filtered['Kg'] = df_filtered.apply(calc_kg, axis=1)
                 df_filtered['Liters'] = df_filtered.apply(calc_l, axis=1)
 
-                # Calculate metrics
                 unique_actions = df_filtered.groupby(['Name', 'Action Code']).agg({
                     'Action start': 'first',
                     'Action completion': 'first'
                 }).reset_index()
-                total_picking_time = calculate_total_time_no_overlap(unique_actions)
-                picking_finish = df_filtered['Action completion'].max()
-                total_orders = df_filtered['Document'].nunique()
-                total_requests = len(df_filtered)
-                total_kg = df_filtered['Kg'].sum()
-                total_liters = df_filtered['Liters'].sum()
-                total_weight = total_kg + total_liters
 
                 property_metrics.append({
                     'name': prop_name,
-                    'picking_time': total_picking_time,
-                    'picking_time_str': format_timedelta(total_picking_time),
-                    'picking_finish': picking_finish,
-                    'picking_finish_str': picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else "N/A",
-                    'orders': total_orders,
-                    'requests': total_requests,
-                    'weight': total_weight
+                    'picking_time': calculate_total_time_no_overlap(unique_actions),
+                    'picking_finish': df_filtered['Action completion'].max(),
+                    'orders': df_filtered['Document'].nunique(),
+                    'requests': len(df_filtered),
+                    'weight': df_filtered['Kg'].sum() + df_filtered['Liters'].sum()
                 })
 
-            # Calculate max values for bar chart percentages
-            max_picking_time = max((m['picking_time'].total_seconds() for m in property_metrics), default=1) or 1
+            # Calculate max values for bar percentages
+            max_time = max((m['picking_time'].total_seconds() for m in property_metrics), default=1) or 1
             max_orders = max((m['orders'] for m in property_metrics), default=1) or 1
             max_requests = max((m['requests'] for m in property_metrics), default=1) or 1
             max_weight = max((m['weight'] for m in property_metrics), default=1) or 1
 
-            # Build rows HTML
-            rows_html = ""
+            # Build rows
+            rows = []
             for m in property_metrics:
-                pct_time = (m['picking_time'].total_seconds() / max_picking_time) * 100
+                pct_time = (m['picking_time'].total_seconds() / max_time) * 100
                 pct_orders = (m['orders'] / max_orders) * 100
                 pct_requests = (m['requests'] / max_requests) * 100
                 pct_weight = (m['weight'] / max_weight) * 100
+                time_str = format_timedelta(m['picking_time'])
+                finish_str = m['picking_finish'].strftime("%I:%M:%S %p") if pd.notna(m['picking_finish']) else "N/A"
 
-                rows_html += f'''<tr>
+                rows.append(f'''<tr>
                     <td class="property-name">{m['name']}</td>
-                    <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_time}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{m['picking_time_str']}</div>
-                    </td>
-                    <td style="padding: 10px;">{m['picking_finish_str']}</td>
-                    <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_orders}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{m['orders']:,}</div>
-                    </td>
-                    <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_requests}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{m['requests']:,}</div>
-                    </td>
-                    <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_weight}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{m['weight']:,.2f}</div>
-                    </td>
-                </tr>'''
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_time}%; background-color: #6B9AC4;"></div><div class="progress-text">{time_str}</div></td>
+                    <td style="padding: 10px;">{finish_str}</td>
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_orders}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['orders']:,}</div></td>
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_requests}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['requests']:,}</div></td>
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_weight}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['weight']:,.2f}</div></td>
+                </tr>''')
 
-            # Build complete HTML table
-            html = f'''<style>
-                .all-comparison-title {{
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 15px;
-                    color: #2F5496;
-                }}
-                .all-comparison-table {{
-                    border-collapse: collapse;
-                    width: auto;
-                    font-family: Arial, sans-serif;
-                    font-size: 14px;
-                }}
-                .all-comparison-table th {{
-                    background-color: #4472C4;
-                    color: white;
-                    padding: 12px 20px;
-                    text-align: center;
-                    border: 1px solid #2F5496;
-                }}
-                .all-comparison-table td {{
-                    padding: 0;
-                    border: 1px solid #B4C6E7;
-                    text-align: center;
-                    color: black;
-                    height: 40px;
-                }}
-                .all-comparison-table tr:nth-child(odd) td {{
-                    background-color: #EDEDED;
-                }}
-                .all-comparison-table tr:nth-child(even) td {{
-                    background-color: #D6DCE4;
-                }}
-                .all-comparison-table .property-name {{
-                    font-weight: bold;
-                    text-align: left !important;
-                    padding: 10px 15px !important;
-                }}
-                .all-comparison-table .progress-cell {{
-                    position: relative;
-                    padding: 0 !important;
-                    width: 140px;
-                }}
-                .all-comparison-table .progress-bar {{
-                    height: 100%;
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                }}
-                .all-comparison-table .progress-text {{
-                    position: relative;
-                    z-index: 1;
-                    padding: 10px;
-                    color: black;
-                }}
+            html = '''
+            <style>
+                .comparison-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #2F5496; }
+                .comparison-table { border-collapse: collapse; width: auto; font-family: Arial, sans-serif; font-size: 14px; }
+                .comparison-table th { background-color: #4472C4; color: white; padding: 12px 20px; text-align: center; border: 1px solid #2F5496; }
+                .comparison-table td { padding: 0; border: 1px solid #B4C6E7; text-align: center; color: black; height: 40px; }
+                .comparison-table tr:nth-child(odd) td { background-color: #EDEDED; }
+                .comparison-table tr:nth-child(even) td { background-color: #D6DCE4; }
+                .property-name { font-weight: bold; text-align: left !important; padding: 10px 15px !important; }
+                .progress-cell { position: relative; padding: 0 !important; width: 140px; }
+                .progress-bar { height: 100%; position: absolute; left: 0; top: 0; }
+                .progress-text { position: relative; z-index: 1; padding: 10px; color: black; }
             </style>
-            <div class="all-comparison-title">All Properties Comparison - {date_display}</div>
-            <table class="all-comparison-table">
+            <div class="comparison-title">All Properties Comparison - ''' + date_display + '''</div>
+            <table class="comparison-table">
                 <tr>
                     <th style="width: 140px;">Property</th>
                     <th style="width: 170px;">Total Picking Time</th>
@@ -1052,13 +986,11 @@ try:
                     <th style="width: 140px;"># of Orders</th>
                     <th style="width: 140px;">Item Requests</th>
                     <th style="width: 140px;">Total Weight</th>
-                </tr>
-                {rows_html}
-            </table>'''
+                </tr>''' + ''.join(rows) + '''
+            </table>
+            '''
 
-            # Calculate height based on number of properties (header + rows)
-            table_height = 50 + (len(property_metrics) * 45)
-            components.html(html, height=table_height)
+            st.markdown(html, unsafe_allow_html=True)
 
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
