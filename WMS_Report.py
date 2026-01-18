@@ -466,12 +466,12 @@ try:
                 ('Picker', '180px'),
                 ('Picking Time', '120px'),
                 ('Requests fulfilled', '140px'),
-                ('Requests per minute', '150px'),
+                ('Requests per min', '140px'),
                 ('Kilograms', '100px'),
                 ('Liters', '100px'),
                 ('Kg per min', '100px'),
                 ('L per min', '100px'),
-                ('Avg per min', '100px')
+                ('Avg per min', '120px')
             ]
             
             html += '<table class="wms-table">'
@@ -584,3 +584,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
