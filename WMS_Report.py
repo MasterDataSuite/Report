@@ -237,12 +237,12 @@ try:
             '''
             
             headers = [
-                ('Cost Center', '120px'),
+                ('Cost Center', '210px'),
                 ('# of Orders', '70px'),
-                ('Unique Item Requests', '80px'),
-                ('Kilograms', '70px'),
-                ('Liters', '70px'),
-                ('Total Picking Time', '80px')
+                ('Unique Item Requests', '100px'),
+                ('Kilograms', '100px'),
+                ('Liters', '100px'),
+                ('Total Picking Time', '100px')
             ]
             
             html += '<table class="wms-table">'
@@ -524,6 +524,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
