@@ -836,40 +836,40 @@ try:
                 <tr>
                     <td class="property-name">{property_1}</td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_time_1}%; background-color: #C65B5B;"></div>
+                        <div class="progress-bar" style="width: {pct_time_1}%; background-color: #6B9AC4;"></div>
                         <div class="progress-text">{picking_time_str_1}</div>
                     </td>
                     <td style="padding: 10px;">{picking_finish_str_1}</td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_orders_1}%; background-color: #5B9BD5;"></div>
+                        <div class="progress-bar" style="width: {pct_orders_1}%; background-color: #6B9AC4;"></div>
                         <div class="progress-text">{total_orders_1:,}</div>
                     </td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_requests_1}%; background-color: #70AD47;"></div>
+                        <div class="progress-bar" style="width: {pct_requests_1}%; background-color: #6B9AC4;"></div>
                         <div class="progress-text">{total_requests_1:,}</div>
                     </td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_weight_1}%; background-color: #9B59B6;"></div>
+                        <div class="progress-bar" style="width: {pct_weight_1}%; background-color: #6B9AC4;"></div>
                         <div class="progress-text">{total_weight_1:,.2f}</div>
                     </td>
                 </tr>
                 <tr>
                     <td class="property-name">{property_2}</td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_time_2}%; background-color: #C65B5B;"></div>
+                        <div class="progress-bar" style="width: {pct_time_2}%; background-color: #97B8D6;"></div>
                         <div class="progress-text">{picking_time_str_2}</div>
                     </td>
                     <td style="padding: 10px;">{picking_finish_str_2}</td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_orders_2}%; background-color: #5B9BD5;"></div>
+                        <div class="progress-bar" style="width: {pct_orders_2}%; background-color: #97B8D6;"></div>
                         <div class="progress-text">{total_orders_2:,}</div>
                     </td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_requests_2}%; background-color: #70AD47;"></div>
+                        <div class="progress-bar" style="width: {pct_requests_2}%; background-color: #97B8D6;"></div>
                         <div class="progress-text">{total_requests_2:,}</div>
                     </td>
                     <td class="progress-cell">
-                        <div class="progress-bar" style="width: {pct_weight_2}%; background-color: #9B59B6;"></div>
+                        <div class="progress-bar" style="width: {pct_weight_2}%; background-color: #97B8D6;"></div>
                         <div class="progress-text">{total_weight_2:,.2f}</div>
                     </td>
                 </tr>
