@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 from datetime import timedelta
 from google.oauth2 import service_account
@@ -1055,7 +1056,9 @@ try:
                 {rows_html}
             </table>'''
 
-            st.markdown(html, unsafe_allow_html=True)
+            # Calculate height based on number of properties (header + rows)
+            table_height = 50 + (len(property_metrics) * 45)
+            components.html(html, height=table_height)
 
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
