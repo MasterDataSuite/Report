@@ -119,41 +119,138 @@ try:
     files = get_files_list()
     file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
     
-    # All dropdowns in one row
-    col1, col2, col3, col4, col_empty = st.columns([170, 165, 110, 130, 800])
-    
-    with col1:
+    # Mode selector
+    col_mode, col_rest = st.columns([170, 1200])
+    with col_mode:
         mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Analytics Mode", "Comparison Mode"], index=0)
-    
-    with col2:
-        view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
-    
-    with col3:
-        selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
-    
-    with col4:
-        if selected_store:
-            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-            df = load_data(selected_file['id'])
-            df['Date'] = pd.to_datetime(df['Date']).dt.date
-            df['Action start'] = pd.to_datetime(df['Action start'])
-            df['Action completion'] = pd.to_datetime(df['Action completion'])
-            unique_dates = sorted(df['Date'].unique())
-            selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
-        else:
-            selected_date = st.selectbox("📅 Date", [""], index=0)
-    
-    if not mode or not view_type or not selected_store or not selected_date:
-        st.info("👆 Please make all selections to continue")
+
+    if not mode:
+        st.info("👆 Please select a mode to continue")
         st.stop()
-    
-    # Convert selected_date back to date object
-    selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
-    day_df = df[df['Date'] == selected_date].copy()
-    
-    day_df['Kg'] = day_df.apply(calc_kg, axis=1)
-    day_df['Liters'] = day_df.apply(calc_l, axis=1)
-    
+
+    # Different UI based on mode
+    if mode == "Comparison Mode":
+        # Comparison Mode specific dropdowns
+        col1, col2, col3, col4, col5, col6, col_empty = st.columns([180, 140, 140, 140, 140, 140, 500])
+
+        with col1:
+            comparison_type = st.selectbox("📊 Compare", ["", "Property vs Property"], index=0)
+
+        with col2:
+            property_1 = st.selectbox("🏪 Property 1", [""] + file_names, index=0)
+
+        with col3:
+            # Exclude property_1 from property_2 options
+            property_2_options = [""] + [f for f in file_names if f != property_1]
+            property_2 = st.selectbox("🏪 Property 2", property_2_options, index=0)
+
+        # Load data and find common dates when both properties selected
+        common_dates = []
+        df1 = None
+        df2 = None
+
+        if property_1 and property_2:
+            file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
+            file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+
+            df1 = load_data(file_1['id'])
+            df1['Date'] = pd.to_datetime(df1['Date']).dt.date
+            df1['Action start'] = pd.to_datetime(df1['Action start'])
+            df1['Action completion'] = pd.to_datetime(df1['Action completion'])
+
+            df2 = load_data(file_2['id'])
+            df2['Date'] = pd.to_datetime(df2['Date']).dt.date
+            df2['Action start'] = pd.to_datetime(df2['Action start'])
+            df2['Action completion'] = pd.to_datetime(df2['Action completion'])
+
+            dates_1 = set(df1['Date'].unique())
+            dates_2 = set(df2['Date'].unique())
+            common_dates = sorted(dates_1 & dates_2)
+
+        with col4:
+            date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+
+        with col5:
+            if common_dates and date_type == "Single Date":
+                selected_comparison_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+            elif common_dates and date_type == "Date Range":
+                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+            else:
+                st.selectbox("📅 Date", [""], index=0, disabled=True)
+
+        with col6:
+            if common_dates and date_type == "Date Range":
+                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+            else:
+                st.empty()
+
+        # Validation for Comparison Mode
+        if not comparison_type:
+            st.info("👆 Please select a comparison type")
+            st.stop()
+
+        if not property_1 or not property_2:
+            st.info("👆 Please select both properties to compare")
+            st.stop()
+
+        if not common_dates:
+            st.warning("⚠️ No common dates found between the selected properties")
+            st.stop()
+
+        if not date_type:
+            st.info("👆 Please select a date type")
+            st.stop()
+
+        if date_type == "Single Date":
+            if not selected_comparison_date:
+                st.info("👆 Please select a date")
+                st.stop()
+            # Convert to date object
+            comparison_dates = [next(d for d in common_dates if d.strftime("%d/%m") == selected_comparison_date)]
+        else:  # Date Range
+            if not start_date or not end_date:
+                st.info("👆 Please select both start and end dates")
+                st.stop()
+            start_date_obj = next(d for d in common_dates if d.strftime("%d/%m") == start_date)
+            end_date_obj = next(d for d in common_dates if d.strftime("%d/%m") == end_date)
+            if start_date_obj > end_date_obj:
+                st.warning("⚠️ Start date must be before or equal to end date")
+                st.stop()
+            comparison_dates = [d for d in common_dates if start_date_obj <= d <= end_date_obj]
+
+    else:
+        # Daily Monitor / Analytics Mode - original dropdowns
+        col2, col3, col4, col_empty = st.columns([165, 110, 130, 800])
+
+        with col2:
+            view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
+
+        with col3:
+            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
+
+        with col4:
+            if selected_store:
+                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+                df = load_data(selected_file['id'])
+                df['Date'] = pd.to_datetime(df['Date']).dt.date
+                df['Action start'] = pd.to_datetime(df['Action start'])
+                df['Action completion'] = pd.to_datetime(df['Action completion'])
+                unique_dates = sorted(df['Date'].unique())
+                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                selected_date = st.selectbox("📅 Date", [""], index=0)
+
+        if not view_type or not selected_store or not selected_date:
+            st.info("👆 Please make all selections to continue")
+            st.stop()
+
+        # Convert selected_date back to date object
+        selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+        day_df = df[df['Date'] == selected_date].copy()
+
+        day_df['Kg'] = day_df.apply(calc_kg, axis=1)
+        day_df['Liters'] = day_df.apply(calc_l, axis=1)
+
     # ============== DAILY MONITOR MODE ==============
     if mode == "Daily Monitor":
         
@@ -601,7 +698,145 @@ try:
     
     # ============== COMPARISON MODE ==============
     elif mode == "Comparison Mode":
-        st.info("🚧 Comparison Mode coming soon! This will include:\n\n- Property vs Property\n- All Properties Overview\n- Departments per Property\n- Workers per Property")
+
+        if comparison_type == "Property vs Property":
+            # Filter data for selected dates
+            df1_filtered = df1[df1['Date'].isin(comparison_dates)].copy()
+            df2_filtered = df2[df2['Date'].isin(comparison_dates)].copy()
+
+            # Calculate Kg and Liters
+            df1_filtered['Kg'] = df1_filtered.apply(calc_kg, axis=1)
+            df1_filtered['Liters'] = df1_filtered.apply(calc_l, axis=1)
+            df2_filtered['Kg'] = df2_filtered.apply(calc_kg, axis=1)
+            df2_filtered['Liters'] = df2_filtered.apply(calc_l, axis=1)
+
+            # Calculate metrics for Property 1
+            unique_actions_1 = df1_filtered.groupby(['Name', 'Action Code']).agg({
+                'Action start': 'first',
+                'Action completion': 'first'
+            }).reset_index()
+            total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
+            picking_finish_1 = df1_filtered['Action completion'].max()
+            total_orders_1 = df1_filtered['Action Code'].nunique()
+            total_requests_1 = len(df1_filtered)
+            total_kg_1 = df1_filtered['Kg'].sum()
+            total_liters_1 = df1_filtered['Liters'].sum()
+            total_weight_1 = total_kg_1 + total_liters_1
+
+            # Calculate metrics for Property 2
+            unique_actions_2 = df2_filtered.groupby(['Name', 'Action Code']).agg({
+                'Action start': 'first',
+                'Action completion': 'first'
+            }).reset_index()
+            total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
+            picking_finish_2 = df2_filtered['Action completion'].max()
+            total_orders_2 = df2_filtered['Action Code'].nunique()
+            total_requests_2 = len(df2_filtered)
+            total_kg_2 = df2_filtered['Kg'].sum()
+            total_liters_2 = df2_filtered['Liters'].sum()
+            total_weight_2 = total_kg_2 + total_liters_2
+
+            # Format values
+            picking_time_str_1 = format_timedelta(total_picking_time_1)
+            picking_time_str_2 = format_timedelta(total_picking_time_2)
+            picking_finish_str_1 = picking_finish_1.strftime("%I:%M:%S %p") if pd.notna(picking_finish_1) else "N/A"
+            picking_finish_str_2 = picking_finish_2.strftime("%I:%M:%S %p") if pd.notna(picking_finish_2) else "N/A"
+
+            # Date range display
+            if len(comparison_dates) == 1:
+                date_display = comparison_dates[0].strftime("%d/%m/%Y")
+            else:
+                date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
+
+            # Build comparison HTML table
+            html = f'''
+            <style>
+                .comparison-title {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                    color: #2F5496;
+                }}
+                .comparison-table {{
+                    border-collapse: collapse;
+                    width: auto;
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                }}
+                .comparison-table th {{
+                    background-color: #4472C4;
+                    color: white;
+                    padding: 12px 20px;
+                    text-align: center;
+                    border: 1px solid #2F5496;
+                }}
+                .comparison-table td {{
+                    padding: 10px 20px;
+                    border: 1px solid #B4C6E7;
+                    text-align: center;
+                    color: black;
+                }}
+                .comparison-table tr:nth-child(odd) td {{
+                    background-color: #D6DCE4;
+                }}
+                .comparison-table tr:nth-child(even) td {{
+                    background-color: #EDEDED;
+                }}
+                .metric-name {{
+                    font-weight: bold;
+                    text-align: left !important;
+                    background-color: #D6DCE4 !important;
+                }}
+                .winner {{
+                    background-color: #C6EFCE !important;
+                    font-weight: bold;
+                }}
+                .loser {{
+                    background-color: #FFC7CE !important;
+                }}
+            </style>
+
+            <div class="comparison-title">Property vs Property Comparison - {date_display}</div>
+
+            <table class="comparison-table">
+                <tr>
+                    <th style="width: 180px;">Metric</th>
+                    <th style="width: 150px;">{property_1}</th>
+                    <th style="width: 150px;">{property_2}</th>
+                </tr>
+                <tr>
+                    <td class="metric-name">Total Picking Time</td>
+                    <td>{picking_time_str_1}</td>
+                    <td>{picking_time_str_2}</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Picking Finish Time</td>
+                    <td>{picking_finish_str_1}</td>
+                    <td>{picking_finish_str_2}</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Total # of Orders</td>
+                    <td>{total_orders_1:,}</td>
+                    <td>{total_orders_2:,}</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Total Item Requests</td>
+                    <td>{total_requests_1:,}</td>
+                    <td>{total_requests_2:,}</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Total Weight (Kg + L)</td>
+                    <td>{total_weight_1:,.2f}</td>
+                    <td>{total_weight_2:,.2f}</td>
+                </tr>
+            </table>
+            '''
+
+            st.markdown(html, unsafe_allow_html=True)
+
+            if st.button("🔄 Refresh Data"):
+                st.cache_data.clear()
+                st.rerun()
     
     # ============== ANALYTICS MODE ==============
     elif mode == "Analytics Mode":
