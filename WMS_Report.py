@@ -153,12 +153,12 @@ try:
             file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
             file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
 
-            df1 = load_data(file_1['id'])
+            df1 = load_data(file_1['id']).copy()
             df1['Date'] = pd.to_datetime(df1['Date']).dt.date
             df1['Action start'] = pd.to_datetime(df1['Action start'])
             df1['Action completion'] = pd.to_datetime(df1['Action completion'])
 
-            df2 = load_data(file_2['id'])
+            df2 = load_data(file_2['id']).copy()
             df2['Date'] = pd.to_datetime(df2['Date']).dt.date
             df2['Action start'] = pd.to_datetime(df2['Action start'])
             df2['Action completion'] = pd.to_datetime(df2['Action completion'])
@@ -703,6 +703,9 @@ try:
             # Filter data for selected dates
             df1_filtered = df1[df1['Date'].isin(comparison_dates)].copy()
             df2_filtered = df2[df2['Date'].isin(comparison_dates)].copy()
+
+            # Debug info - remove after verification
+            st.caption(f"Debug: {property_1} has {len(df1_filtered)} rows for selected date(s), {property_2} has {len(df2_filtered)} rows")
 
             # Calculate Kg and Liters
             df1_filtered['Kg'] = df1_filtered.apply(calc_kg, axis=1)
