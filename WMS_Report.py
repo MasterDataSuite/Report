@@ -134,38 +134,64 @@ try:
         col1, col2, col3, col4, col5, col6, col_empty = st.columns([220, 140, 140, 160, 140, 140, 800])
 
         with col1:
-            comparison_type = st.selectbox("📊 Compare", ["", "Property vs Property"], index=0)
+            comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
 
-        with col2:
-            property_1 = st.selectbox("🏪 Property 1", [""] + file_names, index=0)
-
-        with col3:
-            # Exclude property_1 from property_2 options
-            property_2_options = [""] + [f for f in file_names if f != property_1]
-            property_2 = st.selectbox("🏪 Property 2", property_2_options, index=0)
-
-        # Load data and find common dates when both properties selected
+        # Initialize variables
         common_dates = []
+        all_property_data = {}  # For All Properties mode
         df1 = None
         df2 = None
+        property_1 = None
+        property_2 = None
 
-        if property_1 and property_2:
-            file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
-            file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+        if comparison_type == "Property vs Property":
+            with col2:
+                property_1 = st.selectbox("🏪 Property 1", [""] + file_names, index=0)
 
-            df1 = load_data(file_1['id']).copy()
-            df1['Date'] = pd.to_datetime(df1['Date']).dt.date
-            df1['Action start'] = pd.to_datetime(df1['Action start'])
-            df1['Action completion'] = pd.to_datetime(df1['Action completion'])
+            with col3:
+                # Exclude property_1 from property_2 options
+                property_2_options = [""] + [f for f in file_names if f != property_1]
+                property_2 = st.selectbox("🏪 Property 2", property_2_options, index=0)
 
-            df2 = load_data(file_2['id']).copy()
-            df2['Date'] = pd.to_datetime(df2['Date']).dt.date
-            df2['Action start'] = pd.to_datetime(df2['Action start'])
-            df2['Action completion'] = pd.to_datetime(df2['Action completion'])
+            # Load data and find common dates when both properties selected
+            if property_1 and property_2:
+                file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
+                file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
 
-            dates_1 = set(df1['Date'].unique())
-            dates_2 = set(df2['Date'].unique())
-            common_dates = sorted(dates_1 & dates_2)
+                df1 = load_data(file_1['id']).copy()
+                df1['Date'] = pd.to_datetime(df1['Date']).dt.date
+                df1['Action start'] = pd.to_datetime(df1['Action start'])
+                df1['Action completion'] = pd.to_datetime(df1['Action completion'])
+
+                df2 = load_data(file_2['id']).copy()
+                df2['Date'] = pd.to_datetime(df2['Date']).dt.date
+                df2['Action start'] = pd.to_datetime(df2['Action start'])
+                df2['Action completion'] = pd.to_datetime(df2['Action completion'])
+
+                dates_1 = set(df1['Date'].unique())
+                dates_2 = set(df2['Date'].unique())
+                common_dates = sorted(dates_1 & dates_2)
+
+        elif comparison_type == "All Properties":
+            with col2:
+                st.empty()
+            with col3:
+                st.empty()
+
+            # Load all properties and find common dates
+            all_dates_sets = []
+            for file_name in file_names:
+                file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                df = load_data(file_obj['id']).copy()
+                df['Date'] = pd.to_datetime(df['Date']).dt.date
+                df['Action start'] = pd.to_datetime(df['Action start'])
+                df['Action completion'] = pd.to_datetime(df['Action completion'])
+                all_property_data[file_name] = df
+                all_dates_sets.append(set(df['Date'].unique()))
+
+            # Find dates common to ALL properties
+            if all_dates_sets:
+                common_dates = sorted(set.intersection(*all_dates_sets))
 
         with col4:
             date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
@@ -189,7 +215,7 @@ try:
             st.info("👆 Please select a comparison type")
             st.stop()
 
-        if not property_1 or not property_2:
+        if comparison_type == "Property vs Property" and (not property_1 or not property_2):
             st.info("👆 Please select both properties to compare")
             st.stop()
 
@@ -704,7 +730,6 @@ try:
             df1_filtered = df1[df1['Date'].isin(comparison_dates)].copy()
             df2_filtered = df2[df2['Date'].isin(comparison_dates)].copy()
 
-
             # Calculate Kg and Liters
             df1_filtered['Kg'] = df1_filtered.apply(calc_kg, axis=1)
             df1_filtered['Liters'] = df1_filtered.apply(calc_l, axis=1)
@@ -884,7 +909,162 @@ try:
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
                 st.rerun()
-    
+
+        elif comparison_type == "All Properties":
+            # Date range display
+            if len(comparison_dates) == 1:
+                date_display = comparison_dates[0].strftime("%d/%m/%Y")
+            else:
+                date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
+
+            # Calculate metrics for all properties
+            property_metrics = []
+            for prop_name, df in all_property_data.items():
+                df_filtered = df[df['Date'].isin(comparison_dates)].copy()
+
+                # Calculate Kg and Liters
+                df_filtered['Kg'] = df_filtered.apply(calc_kg, axis=1)
+                df_filtered['Liters'] = df_filtered.apply(calc_l, axis=1)
+
+                # Calculate metrics
+                unique_actions = df_filtered.groupby(['Name', 'Action Code']).agg({
+                    'Action start': 'first',
+                    'Action completion': 'first'
+                }).reset_index()
+                total_picking_time = calculate_total_time_no_overlap(unique_actions)
+                picking_finish = df_filtered['Action completion'].max()
+                total_orders = df_filtered['Document'].nunique()
+                total_requests = len(df_filtered)
+                total_kg = df_filtered['Kg'].sum()
+                total_liters = df_filtered['Liters'].sum()
+                total_weight = total_kg + total_liters
+
+                property_metrics.append({
+                    'name': prop_name,
+                    'picking_time': total_picking_time,
+                    'picking_time_str': format_timedelta(total_picking_time),
+                    'picking_finish': picking_finish,
+                    'picking_finish_str': picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else "N/A",
+                    'orders': total_orders,
+                    'requests': total_requests,
+                    'weight': total_weight
+                })
+
+            # Calculate max values for bar chart percentages
+            max_picking_time = max((m['picking_time'].total_seconds() for m in property_metrics), default=1) or 1
+            max_orders = max((m['orders'] for m in property_metrics), default=1) or 1
+            max_requests = max((m['requests'] for m in property_metrics), default=1) or 1
+            max_weight = max((m['weight'] for m in property_metrics), default=1) or 1
+
+            # Build HTML table
+            html = f'''
+            <style>
+                .comparison-title {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                    color: #2F5496;
+                }}
+                .comparison-table {{
+                    border-collapse: collapse;
+                    width: auto;
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                }}
+                .comparison-table th {{
+                    background-color: #4472C4;
+                    color: white;
+                    padding: 12px 20px;
+                    text-align: center;
+                    border: 1px solid #2F5496;
+                }}
+                .comparison-table td {{
+                    padding: 0;
+                    border: 1px solid #B4C6E7;
+                    text-align: center;
+                    color: black;
+                    height: 40px;
+                }}
+                .comparison-table tr:nth-child(odd) td {{
+                    background-color: #EDEDED;
+                }}
+                .comparison-table tr:nth-child(even) td {{
+                    background-color: #D6DCE4;
+                }}
+                .property-name {{
+                    font-weight: bold;
+                    text-align: left !important;
+                    padding: 10px 15px !important;
+                }}
+                .progress-cell {{
+                    position: relative;
+                    padding: 0 !important;
+                    width: 140px;
+                }}
+                .progress-bar {{
+                    height: 100%;
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                }}
+                .progress-text {{
+                    position: relative;
+                    z-index: 1;
+                    padding: 10px;
+                    color: black;
+                }}
+            </style>
+
+            <div class="comparison-title">All Properties Comparison - {date_display}</div>
+
+            <table class="comparison-table">
+                <tr>
+                    <th style="width: 140px;">Property</th>
+                    <th style="width: 170px;">Total Picking Time</th>
+                    <th style="width: 140px;">Picking Finish</th>
+                    <th style="width: 140px;"># of Orders</th>
+                    <th style="width: 140px;">Item Requests</th>
+                    <th style="width: 140px;">Total Weight</th>
+                </tr>
+            '''
+
+            for m in property_metrics:
+                pct_time = (m['picking_time'].total_seconds() / max_picking_time) * 100
+                pct_orders = (m['orders'] / max_orders) * 100
+                pct_requests = (m['requests'] / max_requests) * 100
+                pct_weight = (m['weight'] / max_weight) * 100
+
+                html += f'''
+                <tr>
+                    <td class="property-name">{m['name']}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_time}%; background-color: #6B9AC4;"></div>
+                        <div class="progress-text">{m['picking_time_str']}</div>
+                    </td>
+                    <td style="padding: 10px;">{m['picking_finish_str']}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_orders}%; background-color: #6B9AC4;"></div>
+                        <div class="progress-text">{m['orders']:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_requests}%; background-color: #6B9AC4;"></div>
+                        <div class="progress-text">{m['requests']:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_weight}%; background-color: #6B9AC4;"></div>
+                        <div class="progress-text">{m['weight']:,.2f}</div>
+                    </td>
+                </tr>
+                '''
+
+            html += '</table>'
+
+            st.markdown(html, unsafe_allow_html=True)
+
+            if st.button("🔄 Refresh Data"):
+                st.cache_data.clear()
+                st.rerun()
+
     # ============== ANALYTICS MODE ==============
     elif mode == "Analytics Mode":
         st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Trends over time")
