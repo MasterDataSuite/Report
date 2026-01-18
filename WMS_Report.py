@@ -956,86 +956,15 @@ try:
             max_requests = max((m['requests'] for m in property_metrics), default=1) or 1
             max_weight = max((m['weight'] for m in property_metrics), default=1) or 1
 
-            # Build HTML table
-            html = f'''
-            <style>
-                .comparison-title {{
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 15px;
-                    color: #2F5496;
-                }}
-                .comparison-table {{
-                    border-collapse: collapse;
-                    width: auto;
-                    font-family: Arial, sans-serif;
-                    font-size: 14px;
-                }}
-                .comparison-table th {{
-                    background-color: #4472C4;
-                    color: white;
-                    padding: 12px 20px;
-                    text-align: center;
-                    border: 1px solid #2F5496;
-                }}
-                .comparison-table td {{
-                    padding: 0;
-                    border: 1px solid #B4C6E7;
-                    text-align: center;
-                    color: black;
-                    height: 40px;
-                }}
-                .comparison-table tr:nth-child(odd) td {{
-                    background-color: #EDEDED;
-                }}
-                .comparison-table tr:nth-child(even) td {{
-                    background-color: #D6DCE4;
-                }}
-                .property-name {{
-                    font-weight: bold;
-                    text-align: left !important;
-                    padding: 10px 15px !important;
-                }}
-                .progress-cell {{
-                    position: relative;
-                    padding: 0 !important;
-                    width: 140px;
-                }}
-                .progress-bar {{
-                    height: 100%;
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                }}
-                .progress-text {{
-                    position: relative;
-                    z-index: 1;
-                    padding: 10px;
-                    color: black;
-                }}
-            </style>
-
-            <div class="comparison-title">All Properties Comparison - {date_display}</div>
-
-            <table class="comparison-table">
-                <tr>
-                    <th style="width: 140px;">Property</th>
-                    <th style="width: 170px;">Total Picking Time</th>
-                    <th style="width: 140px;">Picking Finish</th>
-                    <th style="width: 140px;"># of Orders</th>
-                    <th style="width: 140px;">Item Requests</th>
-                    <th style="width: 140px;">Total Weight</th>
-                </tr>
-            '''
-
+            # Build rows HTML
+            rows_html = ""
             for m in property_metrics:
                 pct_time = (m['picking_time'].total_seconds() / max_picking_time) * 100
                 pct_orders = (m['orders'] / max_orders) * 100
                 pct_requests = (m['requests'] / max_requests) * 100
                 pct_weight = (m['weight'] / max_weight) * 100
 
-                html += f'''
-                <tr>
+                rows_html += f'''<tr>
                     <td class="property-name">{m['name']}</td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_time}%; background-color: #6B9AC4;"></div>
@@ -1054,10 +983,77 @@ try:
                         <div class="progress-bar" style="width: {pct_weight}%; background-color: #6B9AC4;"></div>
                         <div class="progress-text">{m['weight']:,.2f}</div>
                     </td>
-                </tr>
-                '''
+                </tr>'''
 
-            html += '</table>'
+            # Build complete HTML table
+            html = f'''<style>
+                .all-comparison-title {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                    color: #2F5496;
+                }}
+                .all-comparison-table {{
+                    border-collapse: collapse;
+                    width: auto;
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                }}
+                .all-comparison-table th {{
+                    background-color: #4472C4;
+                    color: white;
+                    padding: 12px 20px;
+                    text-align: center;
+                    border: 1px solid #2F5496;
+                }}
+                .all-comparison-table td {{
+                    padding: 0;
+                    border: 1px solid #B4C6E7;
+                    text-align: center;
+                    color: black;
+                    height: 40px;
+                }}
+                .all-comparison-table tr:nth-child(odd) td {{
+                    background-color: #EDEDED;
+                }}
+                .all-comparison-table tr:nth-child(even) td {{
+                    background-color: #D6DCE4;
+                }}
+                .all-comparison-table .property-name {{
+                    font-weight: bold;
+                    text-align: left !important;
+                    padding: 10px 15px !important;
+                }}
+                .all-comparison-table .progress-cell {{
+                    position: relative;
+                    padding: 0 !important;
+                    width: 140px;
+                }}
+                .all-comparison-table .progress-bar {{
+                    height: 100%;
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                }}
+                .all-comparison-table .progress-text {{
+                    position: relative;
+                    z-index: 1;
+                    padding: 10px;
+                    color: black;
+                }}
+            </style>
+            <div class="all-comparison-title">All Properties Comparison - {date_display}</div>
+            <table class="all-comparison-table">
+                <tr>
+                    <th style="width: 140px;">Property</th>
+                    <th style="width: 170px;">Total Picking Time</th>
+                    <th style="width: 140px;">Picking Finish</th>
+                    <th style="width: 140px;"># of Orders</th>
+                    <th style="width: 140px;">Item Requests</th>
+                    <th style="width: 140px;">Total Weight</th>
+                </tr>
+                {rows_html}
+            </table>'''
 
             st.markdown(html, unsafe_allow_html=True)
 
