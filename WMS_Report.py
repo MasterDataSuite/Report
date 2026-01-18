@@ -201,16 +201,17 @@ try:
             max_weight = dept_report['Total Weight'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
             
-            # Sort buttons row
-            st.markdown("**Sort by:**")
-            sort_cols = ['Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
-            cols = st.columns(len(sort_cols))
+            # Sort buttons row (small icons above table)
+            sort_cols = ['# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            cols = st.columns([280, 110, 180, 120, 120, 120, 150])  # Match header widths
+            with cols[0]:
+                st.write("")  # Empty for Cost Center
             for i, col_name in enumerate(sort_cols):
-                with cols[i]:
-                    arrow = ""
+                with cols[i + 1]:
+                    arrow = "↕️"
                     if st.session_state.dept_sort_col == col_name:
-                        arrow = " ↑" if st.session_state.dept_sort_asc else " ↓"
-                    if st.button(f"{col_name}{arrow}", key=f"sort_{col_name}", use_container_width=True):
+                        arrow = "🔼" if st.session_state.dept_sort_asc else "🔽"
+                    if st.button(arrow, key=f"sort_{col_name}", help=f"Sort by {col_name}"):
                         if st.session_state.dept_sort_col == col_name:
                             st.session_state.dept_sort_asc = not st.session_state.dept_sort_asc
                         else:
@@ -564,4 +565,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
