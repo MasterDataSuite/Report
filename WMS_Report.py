@@ -236,12 +236,19 @@ try:
             </style>
             '''
             
-            headers = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Picking Time']
+            headers = [
+                ('Cost Center', '180px'),
+                ('# of Orders', '100px'),
+                ('Unique Item Requests', '150px'),
+                ('Kilograms', '100px'),
+                ('Liters', '100px'),
+                ('Total Picking Time', '130px')
+            ]
             
             html += '<table class="wms-table">'
             html += '<tr>'
-            for h in headers:
-                html += f'<th>{h}</th>'
+            for h, w in headers:
+                html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
             
             for _, row in dept_report.iterrows():
@@ -517,5 +524,6 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
