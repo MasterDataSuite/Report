@@ -237,7 +237,7 @@ try:
             '''
             
             headers = [
-                ('Cost Center', '180px'),
+                ('Cost Center', '220px'),
                 ('# of Orders', '100px'),
                 ('Unique Item Requests', '150px'),
                 ('Kilograms', '100px'),
@@ -254,7 +254,7 @@ try:
             for _, row in dept_report.iterrows():
                 html += '<tr>'
                 
-                html += f'<td class="dept-name" style="width: 220px;">{row["Cost Center"]}</td>'
+                html += f'<td class="dept-name">{row["Cost Center"]}</td>'
                 
                 pct = (row['# of Orders'] / max_orders * 100) if max_orders > 0 else 0
                 html += f'''<td class="progress-cell">
@@ -524,6 +524,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
