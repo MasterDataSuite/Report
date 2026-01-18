@@ -131,7 +131,7 @@ try:
     # Different UI based on mode
     if mode == "Comparison Mode":
         # Comparison Mode specific dropdowns
-        col1, col2, col3, col4, col5, col6, col_empty = st.columns([120, 160, 140, 140, 140, 140, 500])
+        col1, col2, col3, col4, col5, col6, col_empty = st.columns([120, 165, 140, 140, 140, 140, 800])
 
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "Property vs Property"], index=0)
@@ -889,4 +889,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
