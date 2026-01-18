@@ -175,21 +175,26 @@ try:
                 'Liters': 'sum'
             }).reset_index()
             dept_stats.columns = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters']
+            dept_stats['Total Weight'] = dept_stats['Kilograms'] + dept_stats['Liters']
             
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
             dept_report['Total Picking Time'] = dept_report['picking_time'].apply(format_timedelta)
+            
+            # Sort by Total Weight descending
+            dept_report = dept_report.sort_values('Total Weight', ascending=False).reset_index(drop=True)
             
             max_orders = dept_report['# of Orders'].max()
             max_requests = dept_report['Unique Item Requests'].max()
             max_kg = dept_report['Kilograms'].max()
             max_l = dept_report['Liters'].max()
+            max_weight = dept_report['Total Weight'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
             
             html = '''
             <style>
                 .wms-table {
                     border-collapse: collapse;
-                    width: auto;
+                    width: 100%;
                     font-family: Arial, sans-serif;
                     font-size: 14px;
                 }
@@ -242,6 +247,7 @@ try:
                 ('Unique Item Requests', '180px'),
                 ('Kilograms', '120px'),
                 ('Liters', '120px'),
+                ('Total Weight', '120px'),
                 ('Total Picking Time', '150px')
             ]
             
@@ -278,6 +284,12 @@ try:
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
                     <div class="progress-text">{row["Liters"]:.2f}</div>
+                </td>'''
+                
+                pct = (row['Total Weight'] / max_weight * 100) if max_weight > 0 else 0
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
+                    <div class="progress-text">{row["Total Weight"]:.2f}</div>
                 </td>'''
                 
                 pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
@@ -524,18 +536,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
