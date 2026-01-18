@@ -538,12 +538,10 @@ try:
             date_display = selected_date.strftime("%d/%m")
             
             html += f'''
-            <div style="margin-top: 40px; background-color: #F0F0F0; padding: 15px; border-radius: 5px; display: inline-block;">
-                <span class="stats-title">Statistics for {date_display}</span>
-            </div>
             <table class="stats-table" style="margin-top: 15px;">
                 <tr>
                     <th>Total Picking Time</th>
+                    <th>Picking Finish</th>
                     <th>Total Requests</th>
                     <th>Avg Requests/min</th>
                     <th>Total Kg</th>
@@ -554,6 +552,7 @@ try:
                 </tr>
                 <tr>
                     <td>{total_picking_time_str}</td>
+                    <td>{picking_finish_str}</td>
                     <td>{int(total_requests)}</td>
                     <td>{avg_requests_min:.2f}</td>
                     <td>{total_kg:.2f}</td>
@@ -563,13 +562,8 @@ try:
                     <td>{avg_per_min:.2f}</td>
                 </tr>
             </table>
-            <table class="stats-table" style="margin-top: 15px;">
-                <tr>
-                    <th>Picking Finish</th>
-                    <td>{picking_finish_str}</td>
-                </tr>
-            </table>
             '''
+
             
             st.markdown(html, unsafe_allow_html=True)
             
@@ -588,3 +582,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
