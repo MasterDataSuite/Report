@@ -748,6 +748,21 @@ try:
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
 
+            # Calculate percentages for bar charts (relative to max of the two)
+            max_picking_time = max(total_picking_time_1.total_seconds(), total_picking_time_2.total_seconds(), 1)
+            max_orders = max(total_orders_1, total_orders_2, 1)
+            max_requests = max(total_requests_1, total_requests_2, 1)
+            max_weight = max(total_weight_1, total_weight_2, 1)
+
+            pct_time_1 = (total_picking_time_1.total_seconds() / max_picking_time) * 100
+            pct_time_2 = (total_picking_time_2.total_seconds() / max_picking_time) * 100
+            pct_orders_1 = (total_orders_1 / max_orders) * 100
+            pct_orders_2 = (total_orders_2 / max_orders) * 100
+            pct_requests_1 = (total_requests_1 / max_requests) * 100
+            pct_requests_2 = (total_requests_2 / max_requests) * 100
+            pct_weight_1 = (total_weight_1 / max_weight) * 100
+            pct_weight_2 = (total_weight_2 / max_weight) * 100
+
             # Build comparison HTML table
             html = f'''
             <style>
@@ -771,28 +786,39 @@ try:
                     border: 1px solid #2F5496;
                 }}
                 .comparison-table td {{
-                    padding: 10px 20px;
+                    padding: 0;
                     border: 1px solid #B4C6E7;
                     text-align: center;
                     color: black;
+                    height: 40px;
                 }}
                 .comparison-table tr:nth-child(odd) td {{
-                    background-color: #D6DCE4;
-                }}
-                .comparison-table tr:nth-child(even) td {{
                     background-color: #EDEDED;
                 }}
-                .metric-name {{
+                .comparison-table tr:nth-child(even) td {{
+                    background-color: #D6DCE4;
+                }}
+                .property-name {{
                     font-weight: bold;
                     text-align: left !important;
-                    background-color: #D6DCE4 !important;
+                    padding: 10px 15px !important;
                 }}
-                .winner {{
-                    background-color: #C6EFCE !important;
-                    font-weight: bold;
+                .progress-cell {{
+                    position: relative;
+                    padding: 0 !important;
+                    width: 140px;
                 }}
-                .loser {{
-                    background-color: #FFC7CE !important;
+                .progress-bar {{
+                    height: 100%;
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                }}
+                .progress-text {{
+                    position: relative;
+                    z-index: 1;
+                    padding: 10px;
+                    color: black;
                 }}
             </style>
 
@@ -800,34 +826,52 @@ try:
 
             <table class="comparison-table">
                 <tr>
-                    <th style="width: 180px;">Metric</th>
-                    <th style="width: 150px;">{property_1}</th>
-                    <th style="width: 150px;">{property_2}</th>
+                    <th style="width: 180px;">Property</th>
+                    <th style="width: 140px;">Total Picking Time</th>
+                    <th style="width: 140px;">Picking Finish</th>
+                    <th style="width: 140px;"># of Orders</th>
+                    <th style="width: 140px;">Item Requests</th>
+                    <th style="width: 140px;">Total Weight</th>
                 </tr>
                 <tr>
-                    <td class="metric-name">Total Picking Time</td>
-                    <td>{picking_time_str_1}</td>
-                    <td>{picking_time_str_2}</td>
+                    <td class="property-name">{property_1}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_time_1}%; background-color: #C65B5B;"></div>
+                        <div class="progress-text">{picking_time_str_1}</div>
+                    </td>
+                    <td style="padding: 10px;">{picking_finish_str_1}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_orders_1}%; background-color: #5B9BD5;"></div>
+                        <div class="progress-text">{total_orders_1:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_requests_1}%; background-color: #70AD47;"></div>
+                        <div class="progress-text">{total_requests_1:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_weight_1}%; background-color: #9B59B6;"></div>
+                        <div class="progress-text">{total_weight_1:,.2f}</div>
+                    </td>
                 </tr>
                 <tr>
-                    <td class="metric-name">Picking Finish Time</td>
-                    <td>{picking_finish_str_1}</td>
-                    <td>{picking_finish_str_2}</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Total # of Orders</td>
-                    <td>{total_orders_1:,}</td>
-                    <td>{total_orders_2:,}</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Total Item Requests</td>
-                    <td>{total_requests_1:,}</td>
-                    <td>{total_requests_2:,}</td>
-                </tr>
-                <tr>
-                    <td class="metric-name">Total Weight (Kg + L)</td>
-                    <td>{total_weight_1:,.2f}</td>
-                    <td>{total_weight_2:,.2f}</td>
+                    <td class="property-name">{property_2}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_time_2}%; background-color: #C65B5B;"></div>
+                        <div class="progress-text">{picking_time_str_2}</div>
+                    </td>
+                    <td style="padding: 10px;">{picking_finish_str_2}</td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_orders_2}%; background-color: #5B9BD5;"></div>
+                        <div class="progress-text">{total_orders_2:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_requests_2}%; background-color: #70AD47;"></div>
+                        <div class="progress-text">{total_requests_2:,}</div>
+                    </td>
+                    <td class="progress-cell">
+                        <div class="progress-bar" style="width: {pct_weight_2}%; background-color: #9B59B6;"></div>
+                        <div class="progress-text">{total_weight_2:,.2f}</div>
+                    </td>
                 </tr>
             </table>
             '''
