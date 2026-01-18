@@ -372,9 +372,8 @@ try:
             
             report['picking_minutes'] = report['picking_time'].dt.total_seconds() / 60
             report['Requests per minute'] = report['Requests fulfilled'] / report['picking_minutes']
-            report['Kg per min'] = report['Kilograms'] / report['picking_minutes']
-            report['L per min'] = report['Liters'] / report['picking_minutes']
-            report['Weight per min'] = report['Kg per min'] + report['L per min']
+            report['Total Weight'] = report['Kilograms'] + report['Liters']
+            report['Weight per min'] = report['Total Weight'] / report['picking_minutes']
             
             report['Picking Time'] = report['picking_time'].apply(format_timedelta)
             
@@ -384,27 +383,26 @@ try:
             
             if sort_col == 'Picking Time':
                 report = report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
-            elif sort_col == 'Weight per min':
-                report = report.sort_values('Weight per min', ascending=sort_asc).reset_index(drop=True)
             elif sort_col in report.columns:
                 report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
             report = report[['Name', 'Picking Time', 'Requests fulfilled', 'Requests per minute', 
-                             'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Weight per min', 'picking_time', 'picking_minutes']]
+                             'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes']]
             
             max_time = report['picking_time'].max().total_seconds()
             max_requests = report['Requests fulfilled'].max()
             max_kg = report['Kilograms'].max()
             max_l = report['Liters'].max()
+            max_weight = report['Total Weight'].max()
             
             # Sort controls in one row
-            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Weight per min']
+            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Total Weight', 'Weight per min']
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
                     "Sort by",
                     sort_options,
-                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 5,
+                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 6,
                     key="worker_sort_select"
                 )
             with col_sort2:
@@ -499,10 +497,11 @@ try:
                 ('Picker', '180px'),
                 ('Picking Time', '120px'),
                 ('Requests fulfilled', '140px'),
-                ('Requests per minute', '170px'),
+                ('Requests per minute', '150px'),
                 ('Kilograms', '100px'),
                 ('Liters', '100px'),
-                ('Weight per min', '130px')
+                ('Total Weight', '110px'),
+                ('Weight per min', '110px')
             ]
             
             html += '<table class="wms-table">'
@@ -541,9 +540,14 @@ try:
                     <div class="progress-text">{row["Liters"]:.2f}</div>
                 </td>'''
                 
+                pct = (row['Total Weight'] / max_weight * 100) if max_weight > 0 else 0
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
+                    <div class="progress-text">{row["Total Weight"]:.2f}</div>
+                </td>'''
                 
                 color = get_avg_color(row['Weight per min'])
-                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:.3f}</td>'
+                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:.2f}</td>'
                 
                 html += '</tr>'
             
@@ -557,14 +561,11 @@ try:
             avg_requests_min = total_requests / total_minutes if total_minutes > 0 else 0
             total_kg = report['Kilograms'].sum()
             total_l = report['Liters'].sum()
-            avg_kg_min = total_kg / total_minutes if total_minutes > 0 else 0
-            avg_l_min = total_l / total_minutes if total_minutes > 0 else 0
-            avg_per_min = avg_kg_min + avg_l_min
+            total_weight = total_kg + total_l
+            weight_per_min = total_weight / total_minutes if total_minutes > 0 else 0
             
             picking_finish = day_df['Action completion'].max()
             picking_finish_str = picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else ""
-            
-            date_display = selected_date.strftime("%d/%m")
             
             html += f'''
             <table class="stats-table" style="margin-top: 15px;">
@@ -575,9 +576,8 @@ try:
                     <th>Avg Requests/min</th>
                     <th>Total Kg</th>
                     <th>Total L</th>
-                    <th>Kg/min</th>
-                    <th>L/min</th>
-                    <th>Combined/min</th>
+                    <th>Total Weight</th>
+                    <th>Weight/min</th>
                 </tr>
                 <tr>
                     <td>{total_picking_time_str}</td>
@@ -586,9 +586,8 @@ try:
                     <td>{avg_requests_min:.2f}</td>
                     <td>{total_kg:.2f}</td>
                     <td>{total_l:.2f}</td>
-                    <td>{avg_kg_min:.2f}</td>
-                    <td>{avg_l_min:.2f}</td>
-                    <td>{avg_per_min:.2f}</td>
+                    <td>{total_weight:.2f}</td>
+                    <td>{weight_per_min:.2f}</td>
                 </tr>
             </table>
             '''
@@ -611,6 +610,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
