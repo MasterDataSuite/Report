@@ -201,23 +201,28 @@ try:
             max_weight = dept_report['Total Weight'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
             
-            # Sort buttons row (small icons above table)
-            sort_cols = ['# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
-            cols = st.columns([280, 110, 180, 120, 120, 120, 150])  # Match header widths
-            with cols[0]:
-                st.write("")  # Empty for Cost Center
-            for i, col_name in enumerate(sort_cols):
-                with cols[i + 1]:
-                    arrow = "↕️"
-                    if st.session_state.dept_sort_col == col_name:
-                        arrow = "🔼" if st.session_state.dept_sort_asc else "🔽"
-                    if st.button(arrow, key=f"sort_{col_name}", help=f"Sort by {col_name}"):
-                        if st.session_state.dept_sort_col == col_name:
-                            st.session_state.dept_sort_asc = not st.session_state.dept_sort_asc
-                        else:
-                            st.session_state.dept_sort_col = col_name
-                            st.session_state.dept_sort_asc = False
-                        st.rerun()
+            # Sort controls in one row
+            sort_options = ['# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
+            with col_sort1:
+                sort_col_display = st.selectbox(
+                    "Sort by",
+                    sort_options,
+                    index=sort_options.index(st.session_state.dept_sort_col) if st.session_state.dept_sort_col in sort_options else 4,
+                    key="sort_select"
+                )
+            with col_sort2:
+                sort_order = st.selectbox(
+                    "Order",
+                    ["Descending ↓", "Ascending ↑"],
+                    index=0 if not st.session_state.dept_sort_asc else 1,
+                    key="sort_order"
+                )
+            
+            if sort_col_display != st.session_state.dept_sort_col or (sort_order == "Ascending ↑") != st.session_state.dept_sort_asc:
+                st.session_state.dept_sort_col = sort_col_display
+                st.session_state.dept_sort_asc = (sort_order == "Ascending ↑")
+                st.rerun()
             
             html = '''
             <style>
@@ -271,19 +276,25 @@ try:
             '''
             
             headers = [
-                ('Cost Center', '280px'),
-                ('# of Orders', '110px'),
-                ('Unique Item Requests', '180px'),
-                ('Kilograms', '120px'),
-                ('Liters', '120px'),
-                ('Total Weight', '120px'),
-                ('Total Picking Time', '150px')
+                ('Cost Center', '280px', False),
+                ('# of Orders', '110px', True),
+                ('Unique Item Requests', '180px', True),
+                ('Kilograms', '120px', True),
+                ('Liters', '120px', True),
+                ('Total Weight', '120px', True),
+                ('Total Picking Time', '150px', True)
             ]
             
             html += '<table class="wms-table">'
             html += '<tr>'
-            for h, w in headers:
-                html += f'<th style="width: {w};">{h}</th>'
+            for h, w, sortable in headers:
+                if sortable:
+                    arrow = "↕"
+                    if st.session_state.dept_sort_col == h:
+                        arrow = "↑" if st.session_state.dept_sort_asc else "↓"
+                    html += f'<th style="width: {w};">{h} <span style="opacity: 0.7;">{arrow}</span></th>'
+                else:
+                    html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
             
             for _, row in dept_report.iterrows():
@@ -565,5 +576,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
