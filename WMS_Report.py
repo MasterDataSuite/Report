@@ -704,8 +704,6 @@ try:
             df1_filtered = df1[df1['Date'].isin(comparison_dates)].copy()
             df2_filtered = df2[df2['Date'].isin(comparison_dates)].copy()
 
-            # Debug info - remove after verification
-            st.caption(f"Debug: {property_1} has {len(df1_filtered)} rows for selected date(s), {property_2} has {len(df2_filtered)} rows")
 
             # Calculate Kg and Liters
             df1_filtered['Kg'] = df1_filtered.apply(calc_kg, axis=1)
@@ -720,8 +718,8 @@ try:
             }).reset_index()
             total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
             picking_finish_1 = df1_filtered['Action completion'].max()
-            # Sum of unique orders per department (matches Department View total)
-            total_orders_1 = df1_filtered.groupby('Cost Center')['Action Code'].nunique().sum()
+            # Unique documents (orders) for the property on selected date
+            total_orders_1 = df1_filtered['Document'].nunique()
             total_requests_1 = len(df1_filtered)
             total_kg_1 = df1_filtered['Kg'].sum()
             total_liters_1 = df1_filtered['Liters'].sum()
@@ -734,8 +732,8 @@ try:
             }).reset_index()
             total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
             picking_finish_2 = df2_filtered['Action completion'].max()
-            # Sum of unique orders per department (matches Department View total)
-            total_orders_2 = df2_filtered.groupby('Cost Center')['Action Code'].nunique().sum()
+            # Unique documents (orders) for the property on selected date
+            total_orders_2 = df2_filtered['Document'].nunique()
             total_requests_2 = len(df2_filtered)
             total_kg_2 = df2_filtered['Kg'].sum()
             total_liters_2 = df2_filtered['Liters'].sum()
