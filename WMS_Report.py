@@ -203,7 +203,7 @@ try:
             
             # Sort buttons row
             st.markdown("**Sort by:**")
-            sort_cols = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            sort_cols = ['Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
             cols = st.columns(len(sort_cols))
             for i, col_name in enumerate(sort_cols):
                 with cols[i]:
@@ -564,3 +564,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
