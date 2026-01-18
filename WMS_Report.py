@@ -537,7 +537,7 @@ try:
             
             date_display = selected_date.strftime("%d/%m")
             
-            #html += f'''
+            html += f'''
             #<div style="margin-top: 40px; background-color: #F0F0F0; padding: 15px; border-radius: 5px; display: inline-block;">
                 #<span class="stats-title">Statistics for {date_display}</span>
             #</div>
@@ -584,5 +584,6 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
