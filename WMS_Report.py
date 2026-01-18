@@ -214,7 +214,7 @@ try:
             with col_sort2:
                 sort_order = st.selectbox(
                     "Order",
-                    ["Descending ↓", "Ascending ↑"],
+                    ["Largest ↓", "Smallest ↑"],
                     index=0 if not st.session_state.dept_sort_asc else 1,
                     key="sort_order"
                 )
@@ -570,4 +570,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
