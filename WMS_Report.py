@@ -404,7 +404,7 @@ try:
                 sort_col_display = st.selectbox(
                     "Sort by",
                     sort_options,
-                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 7,
+                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 5,
                     key="worker_sort_select"
                 )
             with col_sort2:
@@ -611,4 +611,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
