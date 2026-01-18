@@ -288,13 +288,7 @@ try:
             html += '<table class="wms-table">'
             html += '<tr>'
             for h, w, sortable in headers:
-                if sortable:
-                    arrow = "↕"
-                    if st.session_state.dept_sort_col == h:
-                        arrow = "↑" if st.session_state.dept_sort_asc else "↓"
-                    html += f'<th style="width: {w};">{h} <span style="opacity: 0.7;">{arrow}</span></th>'
-                else:
-                    html += f'<th style="width: {w};">{h}</th>'
+                html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
             
             for _, row in dept_report.iterrows():
@@ -576,3 +570,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
