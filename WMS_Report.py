@@ -826,8 +826,8 @@ try:
 
             <table class="comparison-table">
                 <tr>
-                    <th style="width: 150px;">Property</th>
-                    <th style="width: 160px;">Total Picking Time</th>
+                    <th style="width: 140px;">Property</th>
+                    <th style="width: 170px;">Total Picking Time</th>
                     <th style="width: 140px;">Picking Finish</th>
                     <th style="width: 140px;"># of Orders</th>
                     <th style="width: 140px;">Item Requests</th>
@@ -889,6 +889,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
