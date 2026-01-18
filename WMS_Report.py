@@ -237,7 +237,7 @@ try:
             '''
             
             headers = [
-                ('Cost Center', '220px'),
+                ('Cost Center', '120px'),
                 ('# of Orders', '100px'),
                 ('Unique Item Requests', '150px'),
                 ('Kilograms', '100px'),
@@ -524,6 +524,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
