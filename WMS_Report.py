@@ -120,10 +120,10 @@ try:
     file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
     
     # All dropdowns in one row
-    col1, col2, col3, col4, col_empty = st.columns([150, 150, 80, 110, 700])
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Comparison Mode", "Analytics Mode"], index=0)
+        mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Analytics Mode"], index=0)
     
     with col2:
         view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
@@ -214,7 +214,7 @@ try:
             with col_sort2:
                 sort_order = st.selectbox(
                     "Order",
-                    ["Largest ↓", "Smallest ↑"],
+                    ["Descending ↓", "Ascending ↑"],
                     index=0 if not st.session_state.dept_sort_asc else 1,
                     key="sort_order"
                 )
@@ -288,7 +288,13 @@ try:
             html += '<table class="wms-table">'
             html += '<tr>'
             for h, w, sortable in headers:
-                html += f'<th style="width: {w};">{h}</th>'
+                if sortable:
+                    arrow = "↕"
+                    if st.session_state.dept_sort_col == h:
+                        arrow = "↑" if st.session_state.dept_sort_asc else "↓"
+                    html += f'<th style="width: {w};">{h} <span style="opacity: 0.7;">{arrow}</span></th>'
+                else:
+                    html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
             
             for _, row in dept_report.iterrows():
@@ -385,7 +391,7 @@ try:
             <style>
                 .wms-table {
                     border-collapse: collapse;
-                    width: 100%;
+                    width: auto;
                     font-family: Arial, sans-serif;
                     font-size: 14px;
                 }
@@ -409,10 +415,9 @@ try:
                     background-color: #EDEDED;
                 }
                 .picker-name {
-                    background-color: #C65B5B !important;
-                    color: black;
                     font-weight: bold;
                     text-align: left !important;
+                    color: black;
                 }
                 .progress-cell {
                     position: relative;
@@ -457,13 +462,22 @@ try:
             </style>
             '''
             
-            headers = ['Picker', 'Picking Time', 'Requests fulfilled', 'Requests per minute', 
-                       'Kilograms', 'Liters', 'Kg per min', 'L per min', 'Avg per min']
+            headers = [
+                ('Picker', '180px'),
+                ('Picking Time', '120px'),
+                ('Requests fulfilled', '140px'),
+                ('Requests per minute', '150px'),
+                ('Kilograms', '100px'),
+                ('Liters', '100px'),
+                ('Kg per min', '100px'),
+                ('L per min', '100px'),
+                ('Avg per min', '100px')
+            ]
             
             html += '<table class="wms-table">'
             html += '<tr>'
-            for h in headers:
-                html += f'<th>{h}</th>'
+            for h, w in headers:
+                html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
             
             for _, row in report.iterrows():
@@ -564,21 +578,9 @@ try:
                 st.rerun()
     
     # ============== ANALYTICS MODE ==============
-    # ============== COMPARISON MODE ==============
-    elif mode == "Comparison Mode":
-        st.info("🚧 Comparison Mode coming soon! This will include:\n\n- Property vs Property\n- All Properties Overview\n- Departments per Property\n- Workers per Property")
-    
-    # ============== ANALYTICS MODE ==============
     elif mode == "Analytics Mode":
-        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Trends over time")
+        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Property vs Property comparison\n- All Properties Overview\n- Trends over time\n- Worker comparisons")
 
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
-
-
-
-
