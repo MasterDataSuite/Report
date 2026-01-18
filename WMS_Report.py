@@ -30,15 +30,6 @@ if not check_password():
 
 st.title("📦 WMS Performance Report")
 
-# Make dropdowns smaller
-st.markdown("""
-    <style>
-    div[data-baseweb="select"] {
-        width: 200px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # Google Drive folder ID
 FOLDER_ID = st.secrets["folder_id"]
 
@@ -124,80 +115,76 @@ def get_avg_color(val):
         b = int(100 + (144 - 100) * ratio)
     return f'#{r:02X}{g:02X}{b:02X}'
 
-# ============== DAILY MONITOR MODE ==============
-if mode == "Daily Monitor":
+try:
+    files = get_files_list()
+    file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
     
-    try:
-        files = get_files_list()
-        file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
-        
-        # All dropdowns in one row
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            mode = st.selectbox("🎯 Mode", ["Daily Monitor", "Analytics Mode"], index=0)
-        
-        with col2:
-            view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
-        
-        with col3:
-            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
-        
-        with col4:
-            if selected_store:
-                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-                df = load_data(selected_file['id'])
-                df['Date'] = pd.to_datetime(df['Date']).dt.date
-                df['Action start'] = pd.to_datetime(df['Action start'])
-                df['Action completion'] = pd.to_datetime(df['Action completion'])
-                unique_dates = sorted(df['Date'].unique())
-                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
-            else:
-                selected_date = st.selectbox("📅 Date", [""], index=0)
-        
-        if not view_type or not selected_store or not selected_date:
-            st.info("👆 Please make all selections to continue")
-            st.stop()
-        
-        selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
-        day_df = df[df['Date'] == selected_date].copy()
-        
-        day_df['Kg'] = day_df.apply(calc_kg, axis=1)
-        day_df['Liters'] = day_df.apply(calc_l, axis=1)
+    # All dropdowns in one row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Analytics Mode"], index=0)
+    
+    with col2:
+        view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
+    
+    with col3:
+        selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
+    
+    with col4:
+        if selected_store:
+            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+            df = load_data(selected_file['id'])
+            df['Date'] = pd.to_datetime(df['Date']).dt.date
+            df['Action start'] = pd.to_datetime(df['Action start'])
+            df['Action completion'] = pd.to_datetime(df['Action completion'])
+            unique_dates = sorted(df['Date'].unique())
+            selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+        else:
+            selected_date = st.selectbox("📅 Date", [""], index=0)
+    
+    if not mode or not view_type or not selected_store or not selected_date:
+        st.info("👆 Please make all selections to continue")
+        st.stop()
+    
+    # Convert selected_date back to date object
+    selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+    day_df = df[df['Date'] == selected_date].copy()
+    
+    day_df['Kg'] = day_df.apply(calc_kg, axis=1)
+    day_df['Liters'] = day_df.apply(calc_l, axis=1)
+    
+    # ============== DAILY MONITOR MODE ==============
+    if mode == "Daily Monitor":
         
         # ============== DEPARTMENT VIEW ==============
         if view_type == "Department View":
             
-            # Get unique actions per Cost Center
             unique_actions_dept = day_df.groupby(['Cost Center', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             unique_actions_dept['picking_time'] = unique_actions_dept['Action completion'] - unique_actions_dept['Action start']
             
-            # Aggregate per Cost Center
             dept_times = unique_actions_dept.groupby('Cost Center')['picking_time'].sum().reset_index()
             
             dept_stats = day_df.groupby('Cost Center').agg({
-                'Action Code': 'nunique',  # Number of orders
-                'Code': 'count',  # Unique item requests (row count)
+                'Action Code': 'nunique',
+                'Code': 'count',
                 'Kg': 'sum',
                 'Liters': 'sum'
             }).reset_index()
             dept_stats.columns = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters']
             
-            # Merge with picking times
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
             dept_report['Total Picking Time'] = dept_report['picking_time'].apply(format_timedelta)
             
-            # Calculate max values for progress bars
             max_orders = dept_report['# of Orders'].max()
             max_requests = dept_report['Unique Item Requests'].max()
             max_kg = dept_report['Kilograms'].max()
             max_l = dept_report['Liters'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
             
-            # Build HTML table
             html = '''
             <style>
                 .wms-table {
@@ -226,9 +213,9 @@ if mode == "Daily Monitor":
                     background-color: #EDEDED;
                 }
                 .dept-name {
-                    color: black;
                     font-weight: bold;
                     text-align: left !important;
+                    color: black;
                 }
                 .progress-cell {
                     position: relative;
@@ -260,38 +247,32 @@ if mode == "Daily Monitor":
             for _, row in dept_report.iterrows():
                 html += '<tr>'
                 
-                # Cost Center name
                 html += f'<td class="dept-name">{row["Cost Center"]}</td>'
                 
-                # # of Orders with progress bar
                 pct = (row['# of Orders'] / max_orders * 100) if max_orders > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
                     <div class="progress-text">{int(row["# of Orders"])}</div>
                 </td>'''
                 
-                # Unique Item Requests with progress bar
                 pct = (row['Unique Item Requests'] / max_requests * 100) if max_requests > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
                     <div class="progress-text">{int(row["Unique Item Requests"])}</div>
                 </td>'''
                 
-                # Kilograms with progress bar
                 pct = (row['Kilograms'] / max_kg * 100) if max_kg > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #FFC000;"></div>
                     <div class="progress-text">{row["Kilograms"]:.2f}</div>
                 </td>'''
                 
-                # Liters with progress bar
                 pct = (row['Liters'] / max_l * 100) if max_l > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
                     <div class="progress-text">{row["Liters"]:.2f}</div>
                 </td>'''
                 
-                # Total Picking Time with progress bar
                 pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
@@ -304,7 +285,6 @@ if mode == "Daily Monitor":
             
             st.markdown(html, unsafe_allow_html=True)
             
-            # Refresh button
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
                 st.rerun()
@@ -530,11 +510,10 @@ if mode == "Daily Monitor":
                 st.cache_data.clear()
                 st.rerun()
     
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+    # ============== ANALYTICS MODE ==============
+    elif mode == "Analytics Mode":
+        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Property vs Property comparison\n- All Properties Overview\n- Trends over time\n- Worker comparisons")
 
-# ============== ANALYTICS MODE ==============
-elif mode == "Analytics Mode":
-    st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Property vs Property comparison\n- All Properties Overview\n- Trends over time\n- Worker comparisons")
-
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
