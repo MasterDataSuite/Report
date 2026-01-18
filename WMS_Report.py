@@ -120,7 +120,7 @@ try:
     file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
     
     # All dropdowns in one row
-    col1, col2, col3, col4, col_empty = st.columns([150, 150, 150, 150, 100])
+    col1, col2, col3, col4, col_empty = st.columns([150, 150, 150, 150, 400])
     
     with col1:
         mode = st.selectbox("🎯 Mode", ["", "Daily Monitor", "Analytics Mode"], index=0)
@@ -570,6 +570,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
