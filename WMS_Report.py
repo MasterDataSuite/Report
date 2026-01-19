@@ -445,9 +445,9 @@ try:
 
         # Reset if store or dates changed
         if (st.session_state.daily_store != selected_store or 
-            st.session_state.daily_dates != selected_dates):
+            st.session_state.get('daily_dates') != selected_dates):
             st.session_state.daily_loaded = False
-
+            
         if not view_type or not selected_store or not date_type:
             st.info("👆 Please make all selections to continue")
             st.stop()
