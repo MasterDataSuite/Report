@@ -668,12 +668,17 @@ try:
                 st.rerun()
         
         # ============== WORKER VIEW ==============
+
         elif view_type == "Worker View":
             
             # Initialize sort state for worker view
             if 'worker_sort_col' not in st.session_state:
                 st.session_state.worker_sort_col = 'Weight per min'
                 st.session_state.worker_sort_asc = False
+            
+            # Determine if single date or date range
+            is_date_range = len(selected_dates) > 1
+            num_days = len(selected_dates)
             
             unique_actions = day_df.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
@@ -700,7 +705,12 @@ try:
             report['Total Weight'] = report['Kilograms'] + report['Liters']
             report['Weight per min'] = report['Total Weight'] / report['picking_minutes']
             
-            report['Picking Time'] = report['picking_time'].apply(format_timedelta)
+            # For date ranges, calculate average picking time per day
+            if is_date_range:
+                report['avg_picking_time'] = report['picking_time'] / num_days
+                report['Picking Time Display'] = report['avg_picking_time'].apply(format_timedelta)
+            else:
+                report['Picking Time Display'] = report['picking_time'].apply(format_timedelta)
             
             # Sort by selected column
             sort_col = st.session_state.worker_sort_col
@@ -818,9 +828,12 @@ try:
             </style>
             '''
             
+            # Dynamic headers based on single date or date range
+            picking_time_header = 'Avg Picking Time' if is_date_range else 'Picking Time'
+            
             headers = [
                 ('Picker', '180px'),
-                ('Picking Time', '120px'),
+                (picking_time_header, '120px'),
                 ('Requests fulfilled', '140px'),
                 ('Requests per minute', '150px'),
                 ('Kilograms', '100px'),
@@ -839,10 +852,13 @@ try:
                 html += '<tr>'
                 html += f'<td class="picker-name">{row["Name"]}</td>'
                 
-                pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
+                if is_date_range:
+                    pct = (row['avg_picking_time'].total_seconds() / (max_time / num_days) * 100) if max_time > 0 else 0
+                else:
+                    pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
-                    <div class="progress-text">{row["Picking Time"]}</div>
+                    <div class="progress-text">{row["Picking Time Display"]}</div>
                 </td>'''
                 
                 pct = (row['Requests fulfilled'] / max_requests * 100) if max_requests > 0 else 0
@@ -880,7 +896,6 @@ try:
             
             # Statistics section
             total_picking_time = total_picking_time_no_overlap
-            total_picking_time_str = format_timedelta(total_picking_time)
             total_requests = report['Requests fulfilled'].sum()
             total_minutes = total_picking_time.total_seconds() / 60
             avg_requests_min = total_requests / total_minutes if total_minutes > 0 else 0
@@ -889,14 +904,38 @@ try:
             total_weight = total_kg + total_l
             weight_per_min = total_weight / total_minutes if total_minutes > 0 else 0
             
-            picking_finish = day_df['Action completion'].max()
-            picking_finish_str = picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else ""
+            # For date ranges, show average picking time and average finish time
+            if is_date_range:
+                avg_picking_time = total_picking_time / num_days
+                total_picking_time_str = format_timedelta(avg_picking_time)
+                
+                # Calculate average picking finish time per day
+                daily_finish = day_df.groupby('Date')['Action completion'].max()
+                finish_times = daily_finish.apply(lambda x: x.hour * 3600 + x.minute * 60 + x.second)
+                avg_seconds = finish_times.mean()
+                avg_hours = int(avg_seconds // 3600)
+                avg_minutes = int((avg_seconds % 3600) // 60)
+                avg_secs = int(avg_seconds % 60)
+                picking_finish_str = f"{avg_hours:02d}:{avg_minutes:02d}:{avg_secs:02d}"
+                if avg_hours < 12:
+                    picking_finish_str = f"{avg_hours:02d}:{avg_minutes:02d}:{avg_secs:02d} AM"
+                else:
+                    h = avg_hours if avg_hours <= 12 else avg_hours - 12
+                    picking_finish_str = f"{h:02d}:{avg_minutes:02d}:{avg_secs:02d} PM"
+            else:
+                total_picking_time_str = format_timedelta(total_picking_time)
+                picking_finish = day_df['Action completion'].max()
+                picking_finish_str = picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else ""
+            
+            # Dynamic summary headers
+            picking_time_summary_header = 'Avg Picking Time' if is_date_range else 'Total Picking Time'
+            picking_finish_summary_header = 'Avg Picking Finish' if is_date_range else 'Picking Finish'
             
             html += f'''
             <table class="stats-table" style="margin-top: 15px;">
                 <tr>
-                    <th>Total Picking Time</th>
-                    <th>Picking Finish</th>
+                    <th>{picking_time_summary_header}</th>
+                    <th>{picking_finish_summary_header}</th>
                     <th>Total Requests</th>
                     <th>Avg Requests/min</th>
                     <th>Total Kg</th>
