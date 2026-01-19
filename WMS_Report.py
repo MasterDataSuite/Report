@@ -364,7 +364,7 @@ try:
 
         with col2:
             view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
-       with col3:
+        with col3:
             selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
 
         # Cache dates in session state to avoid reloading on every interaction
@@ -1237,6 +1237,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
