@@ -360,12 +360,11 @@ try:
 
     else:
         # Daily Monitor Mode - original dropdowns
-        col2, col3, col4, col_load, col_empty = st.columns([165, 110, 130, 120, 680])
+        col2, col3, col4, col5, col6, col_load, col_empty = st.columns([165, 110, 130, 130, 130, 120, 420])
 
         with col2:
             view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
-
-        with col3:
+       with col3:
             selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
 
         # Cache dates in session state to avoid reloading on every interaction
@@ -373,45 +372,92 @@ try:
             st.session_state.cached_store = None
             st.session_state.cached_dates = []
 
+        # Only fetch dates if store changed
+        if selected_store:
+            if st.session_state.cached_store != selected_store:
+                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+                with st.spinner("Loading dates..."):
+                    st.session_state.cached_dates = get_dates_for_store(selected_file['id'])
+                st.session_state.cached_store = selected_store
+            unique_dates = st.session_state.cached_dates
+        else:
+            unique_dates = []
+
         with col4:
-            if selected_store:
-                # Only fetch dates if store changed
-                if st.session_state.cached_store != selected_store:
-                    selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-                    with st.spinner("Loading dates..."):
-                        st.session_state.cached_dates = get_dates_for_store(selected_file['id'])
-                    st.session_state.cached_store = selected_store
-                
-                unique_dates = st.session_state.cached_dates
-                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            if unique_dates:
+                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
             else:
-                selected_date = st.selectbox("📅 Date", [""], index=0)
-                unique_dates = []
+                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True)
+
+        selected_date = None
+        start_date = None
+        end_date = None
+
+        with col5:
+            if unique_dates and date_type == "Single Date":
+                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            elif unique_dates and date_type == "Date Range":
+                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                st.selectbox("📅 Date", [""], index=0, disabled=True)
+
+        with col6:
+            if unique_dates and date_type == "Date Range":
+                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                st.empty()
+
+        # Determine if Load button should be enabled
+        load_enabled = False
+        if view_type and selected_store:
+            if date_type == "Single Date" and selected_date:
+                load_enabled = True
+            elif date_type == "Date Range" and start_date and end_date:
+                load_enabled = True
 
         # Load Data button
         with col_load:
             st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-            load_enabled = bool(view_type and selected_store and selected_date)
             load_data_clicked = st.button("📥 Load Data", type="primary", key="daily_load", disabled=not load_enabled)
+
+        # Build selected_dates list
+        selected_dates = None
+        if date_type == "Single Date" and selected_date:
+            selected_dates = [next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)]
+        elif date_type == "Date Range" and start_date and end_date:
+            start_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == start_date)
+            end_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == end_date)
+            if start_date_obj > end_date_obj:
+                st.warning("⚠️ Start date must be before or equal to end date")
+                st.stop()
+            selected_dates = [d for d in unique_dates if start_date_obj <= d <= end_date_obj]
 
         # Track loaded state in session
         if 'daily_loaded' not in st.session_state:
             st.session_state.daily_loaded = False
             st.session_state.daily_store = None
-            st.session_state.daily_date = None
+            st.session_state.daily_dates = None
 
         if load_data_clicked:
             st.session_state.daily_loaded = True
             st.session_state.daily_store = selected_store
-            st.session_state.daily_date = selected_date
+            st.session_state.daily_dates = selected_dates
 
-        # Reset if store or date changed
+        # Reset if store or dates changed
         if (st.session_state.daily_store != selected_store or 
-            st.session_state.daily_date != selected_date):
+            st.session_state.daily_dates != selected_dates):
             st.session_state.daily_loaded = False
 
-        if not view_type or not selected_store or not selected_date:
+        if not view_type or not selected_store or not date_type:
             st.info("👆 Please make all selections to continue")
+            st.stop()
+
+        if date_type == "Single Date" and not selected_date:
+            st.info("👆 Please select a date")
+            st.stop()
+
+        if date_type == "Date Range" and (not start_date or not end_date):
+            st.info("👆 Please select both start and end dates")
             st.stop()
 
         if not st.session_state.daily_loaded:
@@ -420,17 +466,18 @@ try:
 
         # Only load data once, then cache it
         if 'daily_day_df' not in st.session_state or load_data_clicked:
-            selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
             selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
             
-            with st.spinner("Loading data for selected date..."):
-                day_df = get_filtered_data(selected_file['id'], selected_date_obj)
+            with st.spinner("Loading data for selected date(s)..."):
+                day_df = get_filtered_data(selected_file['id'], selected_dates)
 
             day_df['Kg'] = day_df.apply(calc_kg, axis=1)
             day_df['Liters'] = day_df.apply(calc_l, axis=1)
             st.session_state.daily_day_df = day_df
+            st.session_state.daily_selected_dates = selected_dates
         else:
             day_df = st.session_state.daily_day_df
+            selected_dates = st.session_state.daily_selected_dates
 
     # ============== DAILY MONITOR MODE ==============
     if mode == "Daily Monitor":
@@ -1190,6 +1237,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
