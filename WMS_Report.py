@@ -48,8 +48,9 @@ def get_files_list():
         raise Exception("No Excel files found in the folder")
     return files
 
-@st.cache_data(ttl=60)
-def load_data(file_id):
+@st.cache_data(ttl=300)
+def download_file_bytes(file_id):
+    """Download file from Google Drive and cache the raw bytes"""
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=['https://www.googleapis.com/auth/drive.readonly']
@@ -61,8 +62,34 @@ def load_data(file_id):
     done = False
     while not done:
         status, done = downloader.next_chunk()
-    file_buffer.seek(0)
-    df = pd.read_excel(file_buffer, sheet_name='Input')
+    return file_buffer.getvalue()
+
+@st.cache_data(ttl=300)
+def get_dates_for_store(file_id):
+    """Get unique dates from a file - only parses Date column (fast)"""
+    file_bytes = download_file_bytes(file_id)
+    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input', usecols=['Date'])
+    df['Date'] = pd.to_datetime(df['Date']).dt.date
+    return sorted(df['Date'].unique())
+
+def get_filtered_data(file_id, selected_dates):
+    """Load data filtered to selected dates only - uses cached file bytes"""
+    file_bytes = download_file_bytes(file_id)
+    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input')
+    df['Date'] = pd.to_datetime(df['Date']).dt.date
+    df['Action start'] = pd.to_datetime(df['Action start'])
+    df['Action completion'] = pd.to_datetime(df['Action completion'])
+    if isinstance(selected_dates, list):
+        df = df[df['Date'].isin(selected_dates)]
+    else:
+        df = df[df['Date'] == selected_dates]
+    return df
+
+@st.cache_data(ttl=60)
+def load_data(file_id):
+    """Legacy function - loads all data"""
+    file_bytes = download_file_bytes(file_id)
+    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input')
     return df
 
 # Helper functions
@@ -132,7 +159,7 @@ try:
     # Different UI based on mode
     if mode == "Comparison Mode":
         # Comparison Mode specific dropdowns
-        col1, col2, col3, col4, col5, col6, col_empty = st.columns([220, 140, 140, 160, 140, 140, 800])
+        col1, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 160, 140, 140, 120, 680])
 
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
@@ -154,23 +181,13 @@ try:
                 property_2_options = [""] + [f for f in file_names if f != property_1]
                 property_2 = st.selectbox("🏪 Property 2", property_2_options, index=0)
 
-            # Load data and find common dates when both properties selected
+            # Get dates only (fast) when both properties selected
             if property_1 and property_2:
                 file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
                 file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
 
-                df1 = load_data(file_1['id']).copy()
-                df1['Date'] = pd.to_datetime(df1['Date']).dt.date
-                df1['Action start'] = pd.to_datetime(df1['Action start'])
-                df1['Action completion'] = pd.to_datetime(df1['Action completion'])
-
-                df2 = load_data(file_2['id']).copy()
-                df2['Date'] = pd.to_datetime(df2['Date']).dt.date
-                df2['Action start'] = pd.to_datetime(df2['Action start'])
-                df2['Action completion'] = pd.to_datetime(df2['Action completion'])
-
-                dates_1 = set(df1['Date'].unique())
-                dates_2 = set(df2['Date'].unique())
+                dates_1 = set(get_dates_for_store(file_1['id']))
+                dates_2 = set(get_dates_for_store(file_2['id']))
                 common_dates = sorted(dates_1 & dates_2)
 
         elif comparison_type == "All Properties":
@@ -179,23 +196,27 @@ try:
             with col3:
                 st.empty()
 
-            # Load all properties and find common dates
+            # Get dates only for all properties (fast)
             all_dates_sets = []
             for file_name in file_names:
                 file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
-                df = load_data(file_obj['id']).copy()
-                df['Date'] = pd.to_datetime(df['Date']).dt.date
-                df['Action start'] = pd.to_datetime(df['Action start'])
-                df['Action completion'] = pd.to_datetime(df['Action completion'])
-                all_property_data[file_name] = df
-                all_dates_sets.append(set(df['Date'].unique()))
+                dates = get_dates_for_store(file_obj['id'])
+                all_dates_sets.append(set(dates))
 
             # Find dates common to ALL properties
             if all_dates_sets:
                 common_dates = sorted(set.intersection(*all_dates_sets))
 
+        # Initialize variables for date selection
+        selected_comparison_date = None
+        start_date = None
+        end_date = None
+
         with col4:
-            date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+            if common_dates:
+                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+            else:
+                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True)
 
         with col5:
             if common_dates and date_type == "Single Date":
@@ -210,6 +231,23 @@ try:
                 end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
             else:
                 st.empty()
+
+        # Determine if Load button should be enabled
+        load_enabled = False
+        if comparison_type == "Property vs Property" and property_1 and property_2:
+            if date_type == "Single Date" and selected_comparison_date:
+                load_enabled = True
+            elif date_type == "Date Range" and start_date and end_date:
+                load_enabled = True
+        elif comparison_type == "All Properties":
+            if date_type == "Single Date" and selected_comparison_date:
+                load_enabled = True
+            elif date_type == "Date Range" and start_date and end_date:
+                load_enabled = True
+
+        with col_load:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            load_data_clicked = st.button("📥 Load Data", type="primary", key="comparison_load", disabled=not load_enabled)
 
         # Validation for Comparison Mode
         if not comparison_type:
@@ -245,9 +283,25 @@ try:
                 st.stop()
             comparison_dates = [d for d in common_dates if start_date_obj <= d <= end_date_obj]
 
+        if not load_data_clicked:
+            st.info("👆 Click 'Load Data' to generate the report")
+            st.stop()
+
+        # Load filtered data for selected dates
+        with st.spinner("Loading data for selected dates..."):
+            if comparison_type == "Property vs Property":
+                file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
+                file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+                df1 = get_filtered_data(file_1['id'], comparison_dates)
+                df2 = get_filtered_data(file_2['id'], comparison_dates)
+            elif comparison_type == "All Properties":
+                for file_name in file_names:
+                    file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                    all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
+
     else:
         # Daily Monitor / Analytics Mode - original dropdowns
-        col2, col3, col4, col_empty = st.columns([165, 110, 130, 800])
+        col2, col3, col4, col_load, col_empty = st.columns([165, 110, 130, 120, 680])
 
         with col2:
             view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
@@ -258,22 +312,32 @@ try:
         with col4:
             if selected_store:
                 selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-                df = load_data(selected_file['id'])
-                df['Date'] = pd.to_datetime(df['Date']).dt.date
-                df['Action start'] = pd.to_datetime(df['Action start'])
-                df['Action completion'] = pd.to_datetime(df['Action completion'])
-                unique_dates = sorted(df['Date'].unique())
+                # Only load dates (fast - uses cached file bytes, parses only Date column)
+                unique_dates = get_dates_for_store(selected_file['id'])
                 selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
             else:
                 selected_date = st.selectbox("📅 Date", [""], index=0)
+                unique_dates = []
+
+        # Load Data button
+        with col_load:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            load_enabled = bool(view_type and selected_store and selected_date)
+            load_data_clicked = st.button("📥 Load Data", type="primary", key="daily_load", disabled=not load_enabled)
 
         if not view_type or not selected_store or not selected_date:
             st.info("👆 Please make all selections to continue")
             st.stop()
 
-        # Convert selected_date back to date object
-        selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
-        day_df = df[df['Date'] == selected_date].copy()
+        if not load_data_clicked:
+            st.info("👆 Click 'Load Data' to generate the report")
+            st.stop()
+
+        # Load filtered data for selected date only (fast - file bytes are cached)
+        selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+        
+        with st.spinner("Loading data for selected date..."):
+            day_df = get_filtered_data(selected_file['id'], selected_date_obj)
 
         day_df['Kg'] = day_df.apply(calc_kg, axis=1)
         day_df['Liters'] = day_df.apply(calc_l, axis=1)
@@ -727,42 +791,39 @@ try:
     elif mode == "Comparison Mode":
 
         if comparison_type == "Property vs Property":
-            # Filter data for selected dates
-            df1_filtered = df1[df1['Date'].isin(comparison_dates)].copy()
-            df2_filtered = df2[df2['Date'].isin(comparison_dates)].copy()
-
+            # Data is already filtered to selected dates
             # Calculate Kg and Liters
-            df1_filtered['Kg'] = df1_filtered.apply(calc_kg, axis=1)
-            df1_filtered['Liters'] = df1_filtered.apply(calc_l, axis=1)
-            df2_filtered['Kg'] = df2_filtered.apply(calc_kg, axis=1)
-            df2_filtered['Liters'] = df2_filtered.apply(calc_l, axis=1)
+            df1['Kg'] = df1.apply(calc_kg, axis=1)
+            df1['Liters'] = df1.apply(calc_l, axis=1)
+            df2['Kg'] = df2.apply(calc_kg, axis=1)
+            df2['Liters'] = df2.apply(calc_l, axis=1)
 
             # Calculate metrics for Property 1
-            unique_actions_1 = df1_filtered.groupby(['Name', 'Action Code']).agg({
+            unique_actions_1 = df1.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
-            picking_finish_1 = df1_filtered['Action completion'].max()
+            picking_finish_1 = df1['Action completion'].max()
             # Unique documents (orders) for the property on selected date
-            total_orders_1 = df1_filtered['Document'].nunique()
-            total_requests_1 = len(df1_filtered)
-            total_kg_1 = df1_filtered['Kg'].sum()
-            total_liters_1 = df1_filtered['Liters'].sum()
+            total_orders_1 = df1['Document'].nunique()
+            total_requests_1 = len(df1)
+            total_kg_1 = df1['Kg'].sum()
+            total_liters_1 = df1['Liters'].sum()
             total_weight_1 = total_kg_1 + total_liters_1
 
             # Calculate metrics for Property 2
-            unique_actions_2 = df2_filtered.groupby(['Name', 'Action Code']).agg({
+            unique_actions_2 = df2.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
-            picking_finish_2 = df2_filtered['Action completion'].max()
+            picking_finish_2 = df2['Action completion'].max()
             # Unique documents (orders) for the property on selected date
-            total_orders_2 = df2_filtered['Document'].nunique()
-            total_requests_2 = len(df2_filtered)
-            total_kg_2 = df2_filtered['Kg'].sum()
-            total_liters_2 = df2_filtered['Liters'].sum()
+            total_orders_2 = df2['Document'].nunique()
+            total_requests_2 = len(df2)
+            total_kg_2 = df2['Kg'].sum()
+            total_liters_2 = df2['Liters'].sum()
             total_weight_2 = total_kg_2 + total_liters_2
 
             # Format values
@@ -918,14 +979,13 @@ try:
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
 
-            # Calculate metrics for all properties
+            # Calculate metrics for all properties (data is already filtered)
             property_metrics = []
             for prop_name, df in all_property_data.items():
-                df_filtered = df[df['Date'].isin(comparison_dates)].copy()
-                df_filtered['Kg'] = df_filtered.apply(calc_kg, axis=1)
-                df_filtered['Liters'] = df_filtered.apply(calc_l, axis=1)
+                df['Kg'] = df.apply(calc_kg, axis=1)
+                df['Liters'] = df.apply(calc_l, axis=1)
 
-                unique_actions = df_filtered.groupby(['Name', 'Action Code']).agg({
+                unique_actions = df.groupby(['Name', 'Action Code']).agg({
                     'Action start': 'first',
                     'Action completion': 'first'
                 }).reset_index()
@@ -933,10 +993,10 @@ try:
                 property_metrics.append({
                     'name': prop_name,
                     'picking_time': calculate_total_time_no_overlap(unique_actions),
-                    'picking_finish': df_filtered['Action completion'].max(),
-                    'orders': df_filtered['Document'].nunique(),
-                    'requests': len(df_filtered),
-                    'weight': df_filtered['Kg'].sum() + df_filtered['Liters'].sum()
+                    'picking_finish': df['Action completion'].max(),
+                    'orders': df['Document'].nunique(),
+                    'requests': len(df),
+                    'weight': df['Kg'].sum() + df['Liters'].sum()
                 })
 
             # Calculate max values for bar percentages
@@ -1003,10 +1063,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
-
-
-
-
