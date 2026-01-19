@@ -65,6 +65,26 @@ def load_data(file_id):
     df = pd.read_excel(file_buffer, sheet_name='Input')
     return df
 
+@st.cache_data(ttl=300)
+def get_dates_only(file_id):
+    """Load only the Date column from the file - much faster than loading all data"""
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
+    )
+    service = build('drive', 'v3', credentials=credentials)
+    request = service.files().get_media(fileId=file_id)
+    file_buffer = io.BytesIO()
+    downloader = MediaIoBaseDownload(file_buffer, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    file_buffer.seek(0)
+    # Only read the Date column
+    df = pd.read_excel(file_buffer, sheet_name='Input', usecols=['Date'])
+    df['Date'] = pd.to_datetime(df['Date']).dt.date
+    return sorted(df['Date'].unique())
+
 # Helper functions
 def calc_kg(row):
     if str(row['Unit']).upper() == 'KILOGRAM':
@@ -132,7 +152,7 @@ try:
     # Different UI based on mode
     if mode == "Comparison Mode":
         # Comparison Mode specific dropdowns
-        col1, col2, col3, col4, col5, col6, col_empty = st.columns([220, 140, 140, 160, 140, 140, 800])
+        col1, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 160, 140, 140, 120, 680])
 
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
@@ -154,23 +174,13 @@ try:
                 property_2_options = [""] + [f for f in file_names if f != property_1]
                 property_2 = st.selectbox("🏪 Property 2", property_2_options, index=0)
 
-            # Load data and find common dates when both properties selected
+            # Get dates only (lightweight) when both properties selected
             if property_1 and property_2:
                 file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
                 file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
 
-                df1 = load_data(file_1['id']).copy()
-                df1['Date'] = pd.to_datetime(df1['Date']).dt.date
-                df1['Action start'] = pd.to_datetime(df1['Action start'])
-                df1['Action completion'] = pd.to_datetime(df1['Action completion'])
-
-                df2 = load_data(file_2['id']).copy()
-                df2['Date'] = pd.to_datetime(df2['Date']).dt.date
-                df2['Action start'] = pd.to_datetime(df2['Action start'])
-                df2['Action completion'] = pd.to_datetime(df2['Action completion'])
-
-                dates_1 = set(df1['Date'].unique())
-                dates_2 = set(df2['Date'].unique())
+                dates_1 = set(get_dates_only(file_1['id']))
+                dates_2 = set(get_dates_only(file_2['id']))
                 common_dates = sorted(dates_1 & dates_2)
 
         elif comparison_type == "All Properties":
@@ -179,16 +189,12 @@ try:
             with col3:
                 st.empty()
 
-            # Load all properties and find common dates
+            # Get dates only for all properties (lightweight)
             all_dates_sets = []
             for file_name in file_names:
                 file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
-                df = load_data(file_obj['id']).copy()
-                df['Date'] = pd.to_datetime(df['Date']).dt.date
-                df['Action start'] = pd.to_datetime(df['Action start'])
-                df['Action completion'] = pd.to_datetime(df['Action completion'])
-                all_property_data[file_name] = df
-                all_dates_sets.append(set(df['Date'].unique()))
+                dates = get_dates_only(file_obj['id'])
+                all_dates_sets.append(set(dates))
 
             # Find dates common to ALL properties
             if all_dates_sets:
@@ -245,9 +251,65 @@ try:
                 st.stop()
             comparison_dates = [d for d in common_dates if start_date_obj <= d <= end_date_obj]
 
+        # Load Data button for Comparison Mode
+        with col_load:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            load_data_clicked = st.button("📥 Load Data", type="primary", key="comparison_load")
+
+        # Initialize session state for comparison data
+        if 'comparison_data_loaded' not in st.session_state:
+            st.session_state.comparison_data_loaded = False
+            st.session_state.comparison_df1 = None
+            st.session_state.comparison_df2 = None
+            st.session_state.comparison_all_property_data = {}
+
+        if load_data_clicked:
+            with st.spinner("Loading data..."):
+                if comparison_type == "Property vs Property":
+                    file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
+                    file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+                    
+                    df1 = load_data(file_1['id']).copy()
+                    df1['Date'] = pd.to_datetime(df1['Date']).dt.date
+                    df1['Action start'] = pd.to_datetime(df1['Action start'])
+                    df1['Action completion'] = pd.to_datetime(df1['Action completion'])
+
+                    df2 = load_data(file_2['id']).copy()
+                    df2['Date'] = pd.to_datetime(df2['Date']).dt.date
+                    df2['Action start'] = pd.to_datetime(df2['Action start'])
+                    df2['Action completion'] = pd.to_datetime(df2['Action completion'])
+
+                    st.session_state.comparison_df1 = df1
+                    st.session_state.comparison_df2 = df2
+                    
+                elif comparison_type == "All Properties":
+                    all_property_data = {}
+                    for file_name in file_names:
+                        file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                        df = load_data(file_obj['id']).copy()
+                        df['Date'] = pd.to_datetime(df['Date']).dt.date
+                        df['Action start'] = pd.to_datetime(df['Action start'])
+                        df['Action completion'] = pd.to_datetime(df['Action completion'])
+                        all_property_data[file_name] = df
+                    st.session_state.comparison_all_property_data = all_property_data
+
+                st.session_state.comparison_data_loaded = True
+
+        # Check if data is loaded
+        if not st.session_state.comparison_data_loaded:
+            st.info("👆 Please click 'Load Data' to generate the report")
+            st.stop()
+
+        # Use session state data
+        if comparison_type == "Property vs Property":
+            df1 = st.session_state.comparison_df1
+            df2 = st.session_state.comparison_df2
+        elif comparison_type == "All Properties":
+            all_property_data = st.session_state.comparison_all_property_data
+
     else:
         # Daily Monitor / Analytics Mode - original dropdowns
-        col2, col3, col4, col_empty = st.columns([165, 110, 130, 800])
+        col2, col3, col4, col_load, col_empty = st.columns([165, 110, 130, 120, 680])
 
         with col2:
             view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
@@ -257,26 +319,62 @@ try:
 
         with col4:
             if selected_store:
+                # Only load dates, not full data
                 selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-                df = load_data(selected_file['id'])
-                df['Date'] = pd.to_datetime(df['Date']).dt.date
-                df['Action start'] = pd.to_datetime(df['Action start'])
-                df['Action completion'] = pd.to_datetime(df['Action completion'])
-                unique_dates = sorted(df['Date'].unique())
+                unique_dates = get_dates_only(selected_file['id'])
                 selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
             else:
                 selected_date = st.selectbox("📅 Date", [""], index=0)
+                unique_dates = []
+
+        # Load Data button
+        with col_load:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            load_data_clicked = st.button("📥 Load Data", type="primary", key="daily_load")
 
         if not view_type or not selected_store or not selected_date:
             st.info("👆 Please make all selections to continue")
             st.stop()
 
-        # Convert selected_date back to date object
-        selected_date = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
-        day_df = df[df['Date'] == selected_date].copy()
+        # Initialize session state for daily monitor data
+        if 'daily_data_loaded' not in st.session_state:
+            st.session_state.daily_data_loaded = False
+            st.session_state.daily_df = None
+            st.session_state.daily_day_df = None
+            st.session_state.loaded_store = None
+            st.session_state.loaded_date = None
 
-        day_df['Kg'] = day_df.apply(calc_kg, axis=1)
-        day_df['Liters'] = day_df.apply(calc_l, axis=1)
+        # Check if we need to reload (store or date changed)
+        store_changed = st.session_state.loaded_store != selected_store
+        date_changed = st.session_state.loaded_date != selected_date
+
+        if load_data_clicked or (st.session_state.daily_data_loaded and (store_changed or date_changed)):
+            with st.spinner("Loading data..."):
+                df = load_data(selected_file['id'])
+                df['Date'] = pd.to_datetime(df['Date']).dt.date
+                df['Action start'] = pd.to_datetime(df['Action start'])
+                df['Action completion'] = pd.to_datetime(df['Action completion'])
+                
+                # Convert selected_date back to date object
+                selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+                day_df = df[df['Date'] == selected_date_obj].copy()
+                
+                day_df['Kg'] = day_df.apply(calc_kg, axis=1)
+                day_df['Liters'] = day_df.apply(calc_l, axis=1)
+                
+                st.session_state.daily_df = df
+                st.session_state.daily_day_df = day_df
+                st.session_state.daily_data_loaded = True
+                st.session_state.loaded_store = selected_store
+                st.session_state.loaded_date = selected_date
+
+        if not st.session_state.daily_data_loaded:
+            st.info("👆 Please click 'Load Data' to generate the report")
+            st.stop()
+
+        # Use session state data
+        df = st.session_state.daily_df
+        day_df = st.session_state.daily_day_df
 
     # ============== DAILY MONITOR MODE ==============
     if mode == "Daily Monitor":
@@ -464,6 +562,7 @@ try:
             
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
+                st.session_state.daily_data_loaded = False
                 st.rerun()
         
         # ============== WORKER VIEW ==============
@@ -721,6 +820,7 @@ try:
             
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
+                st.session_state.daily_data_loaded = False
                 st.rerun()
     
     # ============== COMPARISON MODE ==============
@@ -909,6 +1009,7 @@ try:
 
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
+                st.session_state.comparison_data_loaded = False
                 st.rerun()
 
         elif comparison_type == "All Properties":
@@ -994,6 +1095,7 @@ try:
 
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
+                st.session_state.comparison_data_loaded = False
                 st.rerun()
 
     # ============== ANALYTICS MODE ==============
@@ -1003,10 +1105,3 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
-
-
-
-
-
-
-
