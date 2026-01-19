@@ -339,7 +339,7 @@ try:
             st.empty()
 
         # Show coming soon message immediately
-        st.info("🚧 **Analytics Mode coming soon!**\n\nThis will include:\n- Trends over time\n- Performance analytics\n- Historical comparisons")
+        st.info("🚧 **Analytics Mode coming soon!**")
         st.stop()
 
     else:
@@ -1143,3 +1143,4 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
