@@ -804,7 +804,20 @@ try:
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
-            picking_finish_1 = df1['Action completion'].max()
+            
+            # For date ranges, calculate average picking finish time per day
+            if len(comparison_dates) > 1:
+                daily_finish_1 = df1.groupby('Date')['Action completion'].max()
+                # Extract time of day and average it
+                finish_times_1 = daily_finish_1.apply(lambda x: x.hour * 3600 + x.minute * 60 + x.second)
+                avg_seconds_1 = finish_times_1.mean()
+                avg_hours_1 = int(avg_seconds_1 // 3600)
+                avg_minutes_1 = int((avg_seconds_1 % 3600) // 60)
+                avg_secs_1 = int(avg_seconds_1 % 60)
+                picking_finish_1 = pd.Timestamp(f"2000-01-01 {avg_hours_1:02d}:{avg_minutes_1:02d}:{avg_secs_1:02d}")
+            else:
+                picking_finish_1 = df1['Action completion'].max()
+            
             # Unique documents (orders) for the property on selected date
             total_orders_1 = df1['Document'].nunique()
             total_requests_1 = len(df1)
@@ -818,7 +831,19 @@ try:
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
-            picking_finish_2 = df2['Action completion'].max()
+            
+            # For date ranges, calculate average picking finish time per day
+            if len(comparison_dates) > 1:
+                daily_finish_2 = df2.groupby('Date')['Action completion'].max()
+                finish_times_2 = daily_finish_2.apply(lambda x: x.hour * 3600 + x.minute * 60 + x.second)
+                avg_seconds_2 = finish_times_2.mean()
+                avg_hours_2 = int(avg_seconds_2 // 3600)
+                avg_minutes_2 = int((avg_seconds_2 % 3600) // 60)
+                avg_secs_2 = int(avg_seconds_2 % 60)
+                picking_finish_2 = pd.Timestamp(f"2000-01-01 {avg_hours_2:02d}:{avg_minutes_2:02d}:{avg_secs_2:02d}")
+            else:
+                picking_finish_2 = df2['Action completion'].max()
+            
             # Unique documents (orders) for the property on selected date
             total_orders_2 = df2['Document'].nunique()
             total_requests_2 = len(df2)
@@ -832,11 +857,13 @@ try:
             picking_finish_str_1 = picking_finish_1.strftime("%I:%M:%S %p") if pd.notna(picking_finish_1) else "N/A"
             picking_finish_str_2 = picking_finish_2.strftime("%I:%M:%S %p") if pd.notna(picking_finish_2) else "N/A"
 
-            # Date range display
+            # Date range display and column header
             if len(comparison_dates) == 1:
                 date_display = comparison_dates[0].strftime("%d/%m/%Y")
+                picking_finish_header = "Picking Finish"
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
+                picking_finish_header = "Avg Picking Finish"
 
             # Calculate percentages for bar charts (relative to max of the two)
             max_picking_time = max(total_picking_time_1.total_seconds(), total_picking_time_2.total_seconds(), 1)
@@ -918,7 +945,7 @@ try:
                 <tr>
                     <th style="width: 140px;">Property</th>
                     <th style="width: 170px;">Total Picking Time</th>
-                    <th style="width: 140px;">Picking Finish</th>
+                    <th style="width: 140px;">{picking_finish_header}</th>
                     <th style="width: 140px;"># of Orders</th>
                     <th style="width: 140px;">Item Requests</th>
                     <th style="width: 140px;">Total Weight</th>
@@ -973,11 +1000,13 @@ try:
                 st.rerun()
 
         elif comparison_type == "All Properties":
-            # Date range display
+            # Date range display and column header
             if len(comparison_dates) == 1:
                 date_display = comparison_dates[0].strftime("%d/%m/%Y")
+                picking_finish_header = "Picking Finish"
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
+                picking_finish_header = "Avg Picking Finish"
 
             # Calculate metrics for all properties (data is already filtered)
             property_metrics = []
@@ -990,10 +1019,22 @@ try:
                     'Action completion': 'first'
                 }).reset_index()
 
+                # For date ranges, calculate average picking finish time per day
+                if len(comparison_dates) > 1:
+                    daily_finish = df.groupby('Date')['Action completion'].max()
+                    finish_times = daily_finish.apply(lambda x: x.hour * 3600 + x.minute * 60 + x.second)
+                    avg_seconds = finish_times.mean()
+                    avg_hours = int(avg_seconds // 3600)
+                    avg_minutes = int((avg_seconds % 3600) // 60)
+                    avg_secs = int(avg_seconds % 60)
+                    picking_finish = pd.Timestamp(f"2000-01-01 {avg_hours:02d}:{avg_minutes:02d}:{avg_secs:02d}")
+                else:
+                    picking_finish = df['Action completion'].max()
+
                 property_metrics.append({
                     'name': prop_name,
                     'picking_time': calculate_total_time_no_overlap(unique_actions),
-                    'picking_finish': df['Action completion'].max(),
+                    'picking_finish': picking_finish,
                     'orders': df['Document'].nunique(),
                     'requests': len(df),
                     'weight': df['Kg'].sum() + df['Liters'].sum()
@@ -1042,7 +1083,7 @@ try:
                 <tr>
                     <th style="width: 140px;">Property</th>
                     <th style="width: 170px;">Total Picking Time</th>
-                    <th style="width: 140px;">Picking Finish</th>
+                    <th style="width: 140px;">''' + picking_finish_header + '''</th>
                     <th style="width: 140px;"># of Orders</th>
                     <th style="width: 140px;">Item Requests</th>
                     <th style="width: 140px;">Total Weight</th>
