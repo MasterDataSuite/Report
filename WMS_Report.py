@@ -1231,6 +1231,45 @@ try:
             max_requests = max((m['requests'] for m in property_metrics), default=1) or 1
             max_weight = max((m['weight'] for m in property_metrics), default=1) or 1
 
+            # Initialize sort state for all properties comparison
+            if 'allprop_sort_col' not in st.session_state:
+                st.session_state.allprop_sort_col = 'Total Weight'
+                st.session_state.allprop_sort_asc = False
+
+            # Sort controls
+            sort_options = ['Total Picking Time', picking_finish_header, '# of Orders', 'Item Requests', 'Total Weight']
+            col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
+            with col_sort1:
+                sort_col_display = st.selectbox(
+                    "Sort by",
+                    sort_options,
+                    index=sort_options.index(st.session_state.allprop_sort_col) if st.session_state.allprop_sort_col in sort_options else 4,
+                    key="allprop_sort_select"
+                )
+            with col_sort2:
+                sort_order = st.selectbox(
+                    "Order",
+                    ["Largest ↓", "Smallest ↑"],
+                    index=0 if not st.session_state.allprop_sort_asc else 1,
+                    key="allprop_sort_order"
+                )
+
+            if sort_col_display != st.session_state.allprop_sort_col or (sort_order == "Smallest ↑") != st.session_state.allprop_sort_asc:
+                st.session_state.allprop_sort_col = sort_col_display
+                st.session_state.allprop_sort_asc = (sort_order == "Smallest ↑")
+                st.rerun()
+
+            # Sort property_metrics
+            sort_key_map = {
+                'Total Picking Time': lambda m: m['picking_time'].total_seconds(),
+                picking_finish_header: lambda m: m['picking_finish'].hour * 3600 + m['picking_finish'].minute * 60 + m['picking_finish'].second if pd.notna(m['picking_finish']) else 0,
+                '# of Orders': lambda m: m['orders'],
+                'Item Requests': lambda m: m['requests'],
+                'Total Weight': lambda m: m['weight']
+            }
+            sort_key = sort_key_map.get(st.session_state.allprop_sort_col, lambda m: m['weight'])
+            property_metrics = sorted(property_metrics, key=sort_key, reverse=not st.session_state.allprop_sort_asc)
+
             # Build rows
             rows = []
             for m in property_metrics:
