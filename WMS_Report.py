@@ -283,7 +283,23 @@ try:
                 st.stop()
             comparison_dates = [d for d in common_dates if start_date_obj <= d <= end_date_obj]
 
-        if not load_data_clicked:
+        # Track loaded state in session
+        if 'comp_loaded' not in st.session_state:
+            st.session_state.comp_loaded = False
+            st.session_state.comp_dates = None
+            st.session_state.comp_type = None
+
+        if load_data_clicked:
+            st.session_state.comp_loaded = True
+            st.session_state.comp_dates = comparison_dates
+            st.session_state.comp_type = comparison_type
+
+        # Reset if selection changed
+        if (st.session_state.comp_dates != comparison_dates or
+            st.session_state.comp_type != comparison_type):
+            st.session_state.comp_loaded = False
+
+        if not st.session_state.comp_loaded:
             st.info("👆 Click 'Load Data' to generate the report")
             st.stop()
 
@@ -368,11 +384,27 @@ try:
             load_enabled = bool(view_type and selected_store and selected_date)
             load_data_clicked = st.button("📥 Load Data", type="primary", key="daily_load", disabled=not load_enabled)
 
+        # Track loaded state in session
+        if 'daily_loaded' not in st.session_state:
+            st.session_state.daily_loaded = False
+            st.session_state.daily_store = None
+            st.session_state.daily_date = None
+
+        if load_data_clicked:
+            st.session_state.daily_loaded = True
+            st.session_state.daily_store = selected_store
+            st.session_state.daily_date = selected_date
+
+        # Reset if store or date changed
+        if (st.session_state.daily_store != selected_store or 
+            st.session_state.daily_date != selected_date):
+            st.session_state.daily_loaded = False
+
         if not view_type or not selected_store or not selected_date:
             st.info("👆 Please make all selections to continue")
             st.stop()
 
-        if not load_data_clicked:
+        if not st.session_state.daily_loaded:
             st.info("👆 Click 'Load Data' to generate the report")
             st.stop()
 
@@ -1143,4 +1175,5 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
