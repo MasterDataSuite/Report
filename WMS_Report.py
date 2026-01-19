@@ -299,8 +299,51 @@ try:
                     file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
                     all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
 
+    elif mode == "Analytics Mode":
+        # Analytics Mode - show UI but with coming soon message
+        col2, col3, col4, col5, col6, col_empty = st.columns([140, 160, 140, 140, 140, 580])
+
+        with col2:
+            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
+
+        unique_dates = []
+        if selected_store:
+            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+            unique_dates = get_dates_for_store(selected_file['id'])
+
+        with col3:
+            if unique_dates:
+                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+            else:
+                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True)
+
+        selected_date = None
+        start_date = None
+        end_date = None
+
+        with col4:
+            if unique_dates and date_type == "Single Date":
+                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            elif unique_dates and date_type == "Date Range":
+                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                st.selectbox("📅 Date", [""], index=0, disabled=True)
+
+        with col5:
+            if unique_dates and date_type == "Date Range":
+                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+            else:
+                st.empty()
+
+        with col6:
+            st.empty()
+
+        # Show coming soon message immediately
+        st.info("🚧 **Analytics Mode coming soon!**\n\nThis will include:\n- Trends over time\n- Performance analytics\n- Historical comparisons")
+        st.stop()
+
     else:
-        # Daily Monitor / Analytics Mode - original dropdowns
+        # Daily Monitor Mode - original dropdowns
         col2, col3, col4, col_load, col_empty = st.columns([165, 110, 130, 120, 680])
 
         with col2:
@@ -1096,10 +1139,6 @@ try:
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
                 st.rerun()
-
-    # ============== ANALYTICS MODE ==============
-    elif mode == "Analytics Mode":
-        st.info("🚧 Analytics Mode coming soon! This will include:\n\n- Trends over time")
         
 except Exception as e:
     st.error(f"Error loading data: {e}")
