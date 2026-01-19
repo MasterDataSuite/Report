@@ -705,12 +705,14 @@ try:
             report['Total Weight'] = report['Kilograms'] + report['Liters']
             report['Weight per min'] = report['Total Weight'] / report['picking_minutes']
             
-            # For date ranges, calculate average picking time per day
+            # For date ranges, calculate averages per day
             if is_date_range:
                 report['avg_picking_time'] = report['picking_time'] / num_days
                 report['Picking Time Display'] = report['avg_picking_time'].apply(format_timedelta)
+                report['Requests Display'] = (report['Requests fulfilled'] / num_days).round(1)
             else:
                 report['Picking Time Display'] = report['picking_time'].apply(format_timedelta)
+                report['Requests Display'] = report['Requests fulfilled']
             
             # Sort by selected column
             sort_col = st.session_state.worker_sort_col
@@ -722,10 +724,10 @@ try:
                 report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
             if is_date_range:
-                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests per minute', 
+                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests Display', 'Requests per minute', 
                                  'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes', 'avg_picking_time']]
             else:
-                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests per minute', 
+                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests Display', 'Requests per minute', 
                                  'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes']]
             
             max_time = report['picking_time'].max().total_seconds()
@@ -834,11 +836,12 @@ try:
             
             # Dynamic headers based on single date or date range
             picking_time_header = 'Avg Picking Time' if is_date_range else 'Picking Time'
+            requests_header = 'Avg Requests' if is_date_range else 'Requests fulfilled'
             
             headers = [
                 ('Picker', '180px'),
-                (picking_time_header, '120px'),
-                ('Requests fulfilled', '140px'),
+                (picking_time_header, '130px'),
+                (requests_header, '120px'),
                 ('Requests per minute', '150px'),
                 ('Kilograms', '100px'),
                 ('Liters', '100px'),
@@ -865,10 +868,10 @@ try:
                     <div class="progress-text">{row["Picking Time Display"]}</div>
                 </td>'''
                 
-                pct = (row['Requests fulfilled'] / max_requests * 100) if max_requests > 0 else 0
+                pct = (row['Requests Display'] / (max_requests / num_days if is_date_range else max_requests) * 100) if max_requests > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
-                    <div class="progress-text">{int(row["Requests fulfilled"])}</div>
+                    <div class="progress-text">{row["Requests Display"] if is_date_range else int(row["Requests Display"])}</div>
                 </td>'''
                 
                 html += f'<td>{row["Requests per minute"]:.2f}</td>'
@@ -935,12 +938,14 @@ try:
             picking_time_summary_header = 'Avg Picking Time' if is_date_range else 'Total Picking Time'
             picking_finish_summary_header = 'Avg Picking Finish' if is_date_range else 'Picking Finish'
             
+            requests_summary_header = 'Avg Requests' if is_date_range else 'Total Requests'
+            
             html += f'''
             <table class="stats-table" style="margin-top: 15px;">
                 <tr>
                     <th>{picking_time_summary_header}</th>
                     <th>{picking_finish_summary_header}</th>
-                    <th>Total Requests</th>
+                    <th>{requests_summary_header}</th>
                     <th>Avg Requests/min</th>
                     <th>Total Kg</th>
                     <th>Total L</th>
@@ -950,7 +955,7 @@ try:
                 <tr>
                     <td>{total_picking_time_str}</td>
                     <td>{picking_finish_str}</td>
-                    <td>{int(total_requests)}</td>
+                    <td>{round(total_requests / num_days, 1) if is_date_range else int(total_requests)}</td>
                     <td>{avg_requests_min:.2f}</td>
                     <td>{total_kg:.2f}</td>
                     <td>{total_l:.2f}</td>
