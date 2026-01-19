@@ -418,15 +418,19 @@ try:
             st.info("👆 Click 'Load Data' to generate the report")
             st.stop()
 
-        # Load filtered data for selected date only (fast - file bytes are cached)
-        selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
-        selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-        
-        with st.spinner("Loading data for selected date..."):
-            day_df = get_filtered_data(selected_file['id'], selected_date_obj)
+        # Only load data once, then cache it
+        if 'daily_day_df' not in st.session_state or load_data_clicked:
+            selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+            
+            with st.spinner("Loading data for selected date..."):
+                day_df = get_filtered_data(selected_file['id'], selected_date_obj)
 
-        day_df['Kg'] = day_df.apply(calc_kg, axis=1)
-        day_df['Liters'] = day_df.apply(calc_l, axis=1)
+            day_df['Kg'] = day_df.apply(calc_kg, axis=1)
+            day_df['Liters'] = day_df.apply(calc_l, axis=1)
+            st.session_state.daily_day_df = day_df
+        else:
+            day_df = st.session_state.daily_day_df
 
     # ============== DAILY MONITOR MODE ==============
     if mode == "Daily Monitor":
@@ -1186,6 +1190,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
