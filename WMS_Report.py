@@ -303,17 +303,27 @@ try:
             st.info("👆 Click 'Load Data' to generate the report")
             st.stop()
 
-        # Load filtered data for selected dates
-        with st.spinner("Loading data for selected dates..."):
+        # Only load data once, then cache it
+        if 'comp_data_cache' not in st.session_state or load_data_clicked:
+            with st.spinner("Loading data for selected dates..."):
+                if comparison_type == "Property vs Property":
+                    file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
+                    file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+                    df1 = get_filtered_data(file_1['id'], comparison_dates)
+                    df2 = get_filtered_data(file_2['id'], comparison_dates)
+                    st.session_state.comp_data_cache = {'type': 'pvp', 'df1': df1, 'df2': df2}
+                elif comparison_type == "All Properties":
+                    all_property_data = {}
+                    for file_name in file_names:
+                        file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                        all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
+                    st.session_state.comp_data_cache = {'type': 'all', 'data': all_property_data}
+        else:
             if comparison_type == "Property vs Property":
-                file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
-                file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
-                df1 = get_filtered_data(file_1['id'], comparison_dates)
-                df2 = get_filtered_data(file_2['id'], comparison_dates)
+                df1 = st.session_state.comp_data_cache['df1']
+                df2 = st.session_state.comp_data_cache['df2']
             elif comparison_type == "All Properties":
-                for file_name in file_names:
-                    file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
-                    all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
+                all_property_data = st.session_state.comp_data_cache['data']
 
     elif mode == "Analytics Mode":
         # Analytics Mode - show UI but with coming soon message
