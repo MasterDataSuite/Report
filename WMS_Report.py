@@ -721,8 +721,12 @@ try:
             elif sort_col in report.columns:
                 report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
-            report = report[['Name', 'Picking Time', 'Requests fulfilled', 'Requests per minute', 
-                             'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes']]
+            if is_date_range:
+                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests per minute', 
+                                 'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes', 'avg_picking_time']]
+            else:
+                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests per minute', 
+                                 'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes']]
             
             max_time = report['picking_time'].max().total_seconds()
             max_requests = report['Requests fulfilled'].max()
