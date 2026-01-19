@@ -368,11 +368,21 @@ try:
         with col3:
             selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
 
+        # Cache dates in session state to avoid reloading on every interaction
+        if 'cached_store' not in st.session_state:
+            st.session_state.cached_store = None
+            st.session_state.cached_dates = []
+
         with col4:
             if selected_store:
-                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
-                # Only load dates (fast - uses cached file bytes, parses only Date column)
-                unique_dates = get_dates_for_store(selected_file['id'])
+                # Only fetch dates if store changed
+                if st.session_state.cached_store != selected_store:
+                    selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+                    with st.spinner("Loading dates..."):
+                        st.session_state.cached_dates = get_dates_for_store(selected_file['id'])
+                    st.session_state.cached_store = selected_store
+                
+                unique_dates = st.session_state.cached_dates
                 selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
             else:
                 selected_date = st.selectbox("📅 Date", [""], index=0)
@@ -410,6 +420,7 @@ try:
 
         # Load filtered data for selected date only (fast - file bytes are cached)
         selected_date_obj = next(d for d in unique_dates if d.strftime("%d/%m") == selected_date)
+        selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
         
         with st.spinner("Loading data for selected date..."):
             day_df = get_filtered_data(selected_file['id'], selected_date_obj)
@@ -1175,5 +1186,6 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
