@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
+import pyarrow.parquet as pq
 
 st.set_page_config(page_title="WMS Performance Report", layout="wide")
 
@@ -41,7 +42,7 @@ def get_files_list():
         scopes=['https://www.googleapis.com/auth/drive.readonly']
     )
     service = build('drive', 'v3', credentials=credentials)
-    query = f"'{FOLDER_ID}' in parents and (mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='application/vnd.ms-excel')"
+    query = f"'{FOLDER_ID}' in parents and name contains '.parquet'"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     files = results.get('files', [])
     if not files:
@@ -68,14 +69,14 @@ def download_file_bytes(file_id):
 def get_dates_for_store(file_id):
     """Get unique dates from a file - only parses Date column (fast)"""
     file_bytes = download_file_bytes(file_id)
-    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input', usecols=['Date'])
+    df = pd.read_parquet(io.BytesIO(file_bytes), columns=['Date'])
     df['Date'] = pd.to_datetime(df['Date']).dt.date
     return sorted(df['Date'].unique())
 
 def get_filtered_data(file_id, selected_dates):
     """Load data filtered to selected dates only - uses cached file bytes"""
     file_bytes = download_file_bytes(file_id)
-    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input')
+    df = pd.read_parquet(io.BytesIO(file_bytes))
     df['Date'] = pd.to_datetime(df['Date']).dt.date
     df['Action start'] = pd.to_datetime(df['Action start'])
     df['Action completion'] = pd.to_datetime(df['Action completion'])
@@ -89,7 +90,7 @@ def get_filtered_data(file_id, selected_dates):
 def load_data(file_id):
     """Legacy function - loads all data"""
     file_bytes = download_file_bytes(file_id)
-    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name='Input')
+    df = pd.read_parquet(io.BytesIO(file_bytes))
     return df
 
 # Helper functions
@@ -145,7 +146,7 @@ def get_avg_color(val):
 
 try:
     files = get_files_list()
-    file_names = [f['name'].replace('.xlsx', '').replace('.xls', '') for f in files]
+    file_names = [f['name'].replace('.parquet', '') for f in files]
     
     # Mode selector
     col_mode, col_rest = st.columns([170, 1200])
@@ -183,8 +184,8 @@ try:
 
             # Get dates only (fast) when both properties selected
             if property_1 and property_2:
-                file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
-                file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+                file_1 = next(f for f in files if f['name'].replace('.parquet', '') == property_1)
+                file_2 = next(f for f in files if f['name'].replace('.parquet', '') == property_2)
 
                 dates_1 = set(get_dates_for_store(file_1['id']))
                 dates_2 = set(get_dates_for_store(file_2['id']))
@@ -199,7 +200,7 @@ try:
             # Get dates only for all properties (fast)
             all_dates_sets = []
             for file_name in file_names:
-                file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                file_obj = next(f for f in files if f['name'].replace('.parquet', '') == file_name)
                 dates = get_dates_for_store(file_obj['id'])
                 all_dates_sets.append(set(dates))
 
@@ -307,15 +308,15 @@ try:
         if 'comp_data_cache' not in st.session_state or load_data_clicked:
             with st.spinner("Loading data for selected dates..."):
                 if comparison_type == "Property vs Property":
-                    file_1 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_1)
-                    file_2 = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == property_2)
+                    file_1 = next(f for f in files if f['name'].replace('.parquet', '') == property_1)
+                    file_2 = next(f for f in files if f['name'].replace('.parquet', '') == property_2)
                     df1 = get_filtered_data(file_1['id'], comparison_dates)
                     df2 = get_filtered_data(file_2['id'], comparison_dates)
                     st.session_state.comp_data_cache = {'type': 'pvp', 'df1': df1, 'df2': df2}
                 elif comparison_type == "All Properties":
                     all_property_data = {}
                     for file_name in file_names:
-                        file_obj = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == file_name)
+                        file_obj = next(f for f in files if f['name'].replace('.parquet', '') == file_name)
                         all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
                     st.session_state.comp_data_cache = {'type': 'all', 'data': all_property_data}
         else:
@@ -334,7 +335,7 @@ try:
 
         unique_dates = []
         if selected_store:
-            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+            selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
             unique_dates = get_dates_for_store(selected_file['id'])
 
         with col3:
@@ -385,7 +386,7 @@ try:
         # Only fetch dates if store changed
         if selected_store:
             if st.session_state.cached_store != selected_store:
-                selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+                selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
                 with st.spinner("Loading dates..."):
                     st.session_state.cached_dates = get_dates_for_store(selected_file['id'])
                 st.session_state.cached_store = selected_store
@@ -476,7 +477,7 @@ try:
 
         # Only load data once, then cache it
         if 'daily_day_df' not in st.session_state or load_data_clicked:
-            selected_file = next(f for f in files if f['name'].replace('.xlsx', '').replace('.xls', '') == selected_store)
+            selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
             
             with st.spinner("Loading data for selected date(s)..."):
                 day_df = get_filtered_data(selected_file['id'], selected_dates)
