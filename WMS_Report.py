@@ -2,9 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 from datetime import timedelta
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+import requests
 import io
 import pyarrow.parquet as pq
 
@@ -32,38 +30,31 @@ if not check_password():
 
 st.title("📦 WMS Performance Report (Internal Transfers)")
 
-# Google Drive folder ID
-FOLDER_ID = st.secrets["folder_id"]
+
 
 @st.cache_data(ttl=60)
 def get_files_list():
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
-    )
-    service = build('drive', 'v3', credentials=credentials)
-    query = f"'{FOLDER_ID}' in parents and name contains '.parquet'"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
-    files = results.get('files', [])
+    """Get list of Parquet files from GitHub"""
+    headers = {"Authorization": f"token {st.secrets['github_token']}"}
+    url = f"https://api.github.com/repos/{st.secrets['github_repo']}/contents/{st.secrets['github_folder']}"
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to list files: {response.json().get('message', 'Unknown error')}")
+    
+    files = [f for f in response.json() if f['name'].endswith('.parquet')]
     if not files:
-        raise Exception("No Excel files found in the folder")
+        raise Exception("No Parquet files found in the folder")
     return files
 
 @st.cache_data(ttl=300)
-def download_file_bytes(file_id):
-    """Download file from Google Drive and cache the raw bytes"""
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
-    )
-    service = build('drive', 'v3', credentials=credentials)
-    request = service.files().get_media(fileId=file_id)
-    file_buffer = io.BytesIO()
-    downloader = MediaIoBaseDownload(file_buffer, request)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    return file_buffer.getvalue()
+def download_file_bytes(download_url):
+    """Download file from GitHub and cache the raw bytes"""
+    headers = {"Authorization": f"token {st.secrets['github_token']}"}
+    response = requests.get(download_url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to download file: {response.status_code}")
+    return response.content
 
 @st.cache_data(ttl=300)
 def get_dates_for_store(file_id):
@@ -187,8 +178,8 @@ try:
                 file_1 = next(f for f in files if f['name'].replace('.parquet', '') == property_1)
                 file_2 = next(f for f in files if f['name'].replace('.parquet', '') == property_2)
 
-                dates_1 = set(get_dates_for_store(file_1['id']))
-                dates_2 = set(get_dates_for_store(file_2['id']))
+                dates_1 = set(get_dates_for_store(file_1['download_url']))
+                dates_2 = set(get_dates_for_store(file_2['download_url']))
                 common_dates = sorted(dates_1 & dates_2)
 
         elif comparison_type == "All Properties":
@@ -201,7 +192,7 @@ try:
             all_dates_sets = []
             for file_name in file_names:
                 file_obj = next(f for f in files if f['name'].replace('.parquet', '') == file_name)
-                dates = get_dates_for_store(file_obj['id'])
+                dates = get_dates_for_store(file_obj['download_url'])
                 all_dates_sets.append(set(dates))
 
             # Find dates common to ALL properties
@@ -310,14 +301,14 @@ try:
                 if comparison_type == "Property vs Property":
                     file_1 = next(f for f in files if f['name'].replace('.parquet', '') == property_1)
                     file_2 = next(f for f in files if f['name'].replace('.parquet', '') == property_2)
-                    df1 = get_filtered_data(file_1['id'], comparison_dates)
-                    df2 = get_filtered_data(file_2['id'], comparison_dates)
+                    df1 = get_filtered_data(file_1['download_url'], comparison_dates)
+                    df2 = get_filtered_data(file_2['download_url'], comparison_dates)
                     st.session_state.comp_data_cache = {'type': 'pvp', 'df1': df1, 'df2': df2}
                 elif comparison_type == "All Properties":
                     all_property_data = {}
                     for file_name in file_names:
                         file_obj = next(f for f in files if f['name'].replace('.parquet', '') == file_name)
-                        all_property_data[file_name] = get_filtered_data(file_obj['id'], comparison_dates)
+                        all_property_data[file_name] = get_filtered_data(file_obj['download_url'], comparison_dates)
                     st.session_state.comp_data_cache = {'type': 'all', 'data': all_property_data}
         else:
             if comparison_type == "Property vs Property":
@@ -336,7 +327,7 @@ try:
         unique_dates = []
         if selected_store:
             selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
-            unique_dates = get_dates_for_store(selected_file['id'])
+            unique_dates = get_dates_for_store(selected_file['download_url'])
 
         with col3:
             if unique_dates:
@@ -388,7 +379,7 @@ try:
             if st.session_state.cached_store != selected_store:
                 selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
                 with st.spinner("Loading dates..."):
-                    st.session_state.cached_dates = get_dates_for_store(selected_file['id'])
+                    st.session_state.cached_dates = get_dates_for_store(selected_file['download_url'])
                 st.session_state.cached_store = selected_store
             unique_dates = st.session_state.cached_dates
         else:
@@ -480,7 +471,7 @@ try:
             selected_file = next(f for f in files if f['name'].replace('.parquet', '') == selected_store)
             
             with st.spinner("Loading data for selected date(s)..."):
-                day_df = get_filtered_data(selected_file['id'], selected_dates)
+                day_df = get_filtered_data(selected_file['download_url'], selected_dates)
 
             day_df['Kg'] = day_df.apply(calc_kg, axis=1)
             day_df['Liters'] = day_df.apply(calc_l, axis=1)
