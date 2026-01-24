@@ -749,7 +749,7 @@ try:
 
             # Initialize sort state for worker view
             if 'worker_sort_col' not in st.session_state:
-                st.session_state.worker_sort_col = 'Weight per min'
+                st.session_state.worker_sort_col = 'Total Weight'
                 st.session_state.worker_sort_asc = False
 
             unique_actions = day_df.groupby(['Name', 'Action Code']).agg({
@@ -818,7 +818,7 @@ try:
 
             # Reset sort column if it's not in current options (mode changed)
             if st.session_state.worker_sort_col not in sort_options:
-                st.session_state.worker_sort_col = 'Weight per min'
+                st.session_state.worker_sort_col = weight_header
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
