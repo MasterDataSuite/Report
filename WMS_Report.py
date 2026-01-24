@@ -818,7 +818,7 @@ try:
 
             # Reset sort column if it's not in current options (mode changed)
             if st.session_state.worker_sort_col not in sort_options:
-                st.session_state.worker_sort_col = 'Weight per min'
+                st.session_state.worker_sort_col = 'Total Weight'
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
@@ -1534,6 +1534,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
