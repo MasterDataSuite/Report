@@ -150,18 +150,19 @@ try:
 
     # Different UI based on mode
     if mode == "Comparison Mode":
-        # Comparison Mode specific dropdowns
-        col1, col_agg, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 140, 160, 140, 140, 120, 540])
+        # Comparison Mode specific dropdowns - first row
+        col1, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 160, 140, 140, 120, 680])
 
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
 
-        # Aggregation mode dropdown (Total vs Average)
-        with col_agg:
-            if comparison_type:
+        # Second row for Mode dropdown (under Compare)
+        if comparison_type:
+            col_agg, col_agg_empty = st.columns([220, 1060])
+            with col_agg:
                 aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0)
-            else:
-                aggregation_mode = st.selectbox("📈 Mode", [""], index=0, disabled=True)
+        else:
+            aggregation_mode = "Total"
 
         # Initialize variables
         common_dates = []
