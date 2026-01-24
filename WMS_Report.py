@@ -156,14 +156,6 @@ try:
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
 
-        # Second row for Mode dropdown (under Compare)
-        if comparison_type:
-            col_agg, col_agg_empty = st.columns([220, 1060])
-            with col_agg:
-                aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0)
-        else:
-            aggregation_mode = "Total"
-
         # Initialize variables
         common_dates = []
         all_property_data = {}  # For All Properties mode
@@ -231,6 +223,14 @@ try:
                 end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in common_dates], index=0, key="comp_end")
             else:
                 st.empty()
+
+        # Mode dropdown (only for Date Range)
+        if date_type == "Date Range":
+            col_agg, col_agg_empty = st.columns([220, 1060])
+            with col_agg:
+                aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0)
+        else:
+            aggregation_mode = "Total"
 
         # Determine if Load button should be enabled
         load_enabled = False
