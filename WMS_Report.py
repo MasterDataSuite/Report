@@ -417,6 +417,14 @@ try:
             else:
                 st.empty()
 
+        # Mode dropdown (only for Date Range)
+        if date_type == "Date Range":
+            col_agg_daily, col_agg_daily_empty = st.columns([165, 1115])
+            with col_agg_daily:
+                daily_aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0, key="daily_agg_mode")
+        else:
+            daily_aggregation_mode = "Total"
+
         # Determine if Load button should be enabled
         load_enabled = False
         if view_type and selected_store:
@@ -494,20 +502,24 @@ try:
         
         # ============== DEPARTMENT VIEW ==============
         if view_type == "Department View":
-            
+
+            # Check if average mode applies
+            num_days = len(selected_dates)
+            is_average_mode = daily_aggregation_mode == "Average" and num_days > 1
+
             # Initialize sort state
             if 'dept_sort_col' not in st.session_state:
                 st.session_state.dept_sort_col = 'Total Weight'
                 st.session_state.dept_sort_asc = False
-            
+
             unique_actions_dept = day_df.groupby(['Cost Center', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             unique_actions_dept['picking_time'] = unique_actions_dept['Action completion'] - unique_actions_dept['Action start']
-            
+
             dept_times = unique_actions_dept.groupby('Cost Center')['picking_time'].sum().reset_index()
-            
+
             dept_stats = day_df.groupby('Cost Center').agg({
                 'Document': 'nunique',
                 'Code': 'count',
@@ -516,34 +528,62 @@ try:
             }).reset_index()
             dept_stats.columns = ['Cost Center', '# of Orders', 'Item Requests', 'Kilograms', 'Liters']
             dept_stats['Total Weight'] = dept_stats['Kilograms'] + dept_stats['Liters']
-            
+
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
-            dept_report['Total Picking Time'] = dept_report['picking_time'].apply(format_timedelta)
-            
-            # Sort by selected column
-            sort_col = st.session_state.dept_sort_col
-            sort_asc = st.session_state.dept_sort_asc
-            
-            if sort_col == 'Total Picking Time':
-                dept_report = dept_report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
-            elif sort_col in dept_report.columns:
-                dept_report = dept_report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
-            
-            max_orders = dept_report['# of Orders'].max()
-            max_requests = dept_report['Item Requests'].max()
-            max_kg = dept_report['Kilograms'].max()
-            max_l = dept_report['Liters'].max()
-            max_weight = dept_report['Total Weight'].max()
-            max_time = dept_report['picking_time'].max().total_seconds()
-            
+
+            # Apply average mode if selected
+            if is_average_mode:
+                dept_report['display_orders'] = dept_report['# of Orders'] / num_days
+                dept_report['display_requests'] = dept_report['Item Requests'] / num_days
+                dept_report['display_kg'] = dept_report['Kilograms'] / num_days
+                dept_report['display_liters'] = dept_report['Liters'] / num_days
+                dept_report['display_weight'] = dept_report['Total Weight'] / num_days
+                dept_report['display_picking_time'] = dept_report['picking_time'] / num_days
+            else:
+                dept_report['display_orders'] = dept_report['# of Orders']
+                dept_report['display_requests'] = dept_report['Item Requests']
+                dept_report['display_kg'] = dept_report['Kilograms']
+                dept_report['display_liters'] = dept_report['Liters']
+                dept_report['display_weight'] = dept_report['Total Weight']
+                dept_report['display_picking_time'] = dept_report['picking_time']
+
+            dept_report['Total Picking Time'] = dept_report['display_picking_time'].apply(format_timedelta)
+
+            max_orders = dept_report['display_orders'].max()
+            max_requests = dept_report['display_requests'].max()
+            max_kg = dept_report['display_kg'].max()
+            max_l = dept_report['display_liters'].max()
+            max_weight = dept_report['display_weight'].max()
+            max_time = dept_report['display_picking_time'].max().total_seconds()
+
+            # Dynamic headers based on mode
+            if is_average_mode:
+                orders_header = 'Avg Orders'
+                requests_header = 'Avg Requests'
+                kg_header = 'Avg Kg'
+                liters_header = 'Avg Liters'
+                weight_header = 'Avg Weight'
+                time_header = 'Avg Picking Time'
+            else:
+                orders_header = '# of Orders'
+                requests_header = 'Item Requests'
+                kg_header = 'Kilograms'
+                liters_header = 'Liters'
+                weight_header = 'Total Weight'
+                time_header = 'Total Picking Time'
+
             # Sort controls in one row
-            sort_options = ['# of Orders', 'Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            sort_options = [orders_header, requests_header, kg_header, liters_header, weight_header, time_header]
+
+            # Reset sort column if it's not in current options (mode changed)
+            if st.session_state.dept_sort_col not in sort_options:
+                st.session_state.dept_sort_col = weight_header
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
                     "Sort by",
                     sort_options,
-                    index=sort_options.index(st.session_state.dept_sort_col) if st.session_state.dept_sort_col in sort_options else 4,
+                    index=sort_options.index(st.session_state.dept_sort_col),
                     key="sort_select"
                 )
             with col_sort2:
@@ -558,7 +598,25 @@ try:
                 st.session_state.dept_sort_col = sort_col_display
                 st.session_state.dept_sort_asc = (sort_order == "Smallest ↑")
                 st.rerun()
-            
+
+            # Sort by selected column
+            sort_col = st.session_state.dept_sort_col
+            sort_asc = st.session_state.dept_sort_asc
+
+            sort_col_map = {
+                orders_header: 'display_orders',
+                requests_header: 'display_requests',
+                kg_header: 'display_kg',
+                liters_header: 'display_liters',
+                weight_header: 'display_weight',
+                time_header: 'display_picking_time'
+            }
+            sort_by_col = sort_col_map.get(sort_col, 'display_weight')
+            if sort_by_col == 'display_picking_time':
+                dept_report = dept_report.sort_values(sort_by_col, ascending=sort_asc, key=lambda x: x.apply(lambda td: td.total_seconds())).reset_index(drop=True)
+            else:
+                dept_report = dept_report.sort_values(sort_by_col, ascending=sort_asc).reset_index(drop=True)
+
             html = '''
             <style>
                 .wms-table {
@@ -611,62 +669,66 @@ try:
             '''
             
             headers = [
-                ('Cost Center', '280px', False),
-                ('# of Orders', '110px', True),
-                ('Item Requests', '180px', True),
-                ('Kilograms', '120px', True),
-                ('Liters', '120px', True),
-                ('Total Weight', '120px', True),
-                ('Total Picking Time', '150px', True)
+                ('Cost Center', '280px'),
+                (orders_header, '110px'),
+                (requests_header, '180px'),
+                (kg_header, '120px'),
+                (liters_header, '120px'),
+                (weight_header, '120px'),
+                (time_header, '150px')
             ]
-            
+
             html += '<table class="wms-table">'
             html += '<tr>'
-            for h, w, sortable in headers:
+            for h, w in headers:
                 html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
-            
+
             for _, row in dept_report.iterrows():
                 html += '<tr>'
-                
+
                 html += f'<td class="dept-name">{row["Cost Center"]}</td>'
-                
-                pct = (row['# of Orders'] / max_orders * 100) if max_orders > 0 else 0
+
+                # Format values based on mode
+                orders_str = f"{row['display_orders']:.1f}" if is_average_mode else f"{int(row['display_orders'])}"
+                requests_str = f"{row['display_requests']:.1f}" if is_average_mode else f"{int(row['display_requests'])}"
+
+                pct = (row['display_orders'] / max_orders * 100) if max_orders > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
-                    <div class="progress-text">{int(row["# of Orders"])}</div>
+                    <div class="progress-text">{orders_str}</div>
                 </td>'''
-                
-                pct = (row['Item Requests'] / max_requests * 100) if max_requests > 0 else 0
+
+                pct = (row['display_requests'] / max_requests * 100) if max_requests > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
-                    <div class="progress-text">{int(row["Item Requests"])}</div>
+                    <div class="progress-text">{requests_str}</div>
                 </td>'''
-                
-                pct = (row['Kilograms'] / max_kg * 100) if max_kg > 0 else 0
+
+                pct = (row['display_kg'] / max_kg * 100) if max_kg > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #FFC000;"></div>
-                    <div class="progress-text">{row["Kilograms"]:.2f}</div>
+                    <div class="progress-text">{row["display_kg"]:.2f}</div>
                 </td>'''
-                
-                pct = (row['Liters'] / max_l * 100) if max_l > 0 else 0
+
+                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
-                    <div class="progress-text">{row["Liters"]:.2f}</div>
+                    <div class="progress-text">{row["display_liters"]:.2f}</div>
                 </td>'''
-                
-                pct = (row['Total Weight'] / max_weight * 100) if max_weight > 0 else 0
+
+                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
-                    <div class="progress-text">{row["Total Weight"]:.2f}</div>
+                    <div class="progress-text">{row["display_weight"]:.2f}</div>
                 </td>'''
-                
-                pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
+
+                pct = (row['display_picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
                     <div class="progress-text">{row["Total Picking Time"]}</div>
                 </td>'''
-                
+
                 html += '</tr>'
             
             html += '</table>'
@@ -680,25 +742,25 @@ try:
         # ============== WORKER VIEW ==============
 
         elif view_type == "Worker View":
-            
+
+            # Check if average mode applies
+            num_days = len(selected_dates)
+            is_average_mode = daily_aggregation_mode == "Average" and num_days > 1
+
             # Initialize sort state for worker view
             if 'worker_sort_col' not in st.session_state:
                 st.session_state.worker_sort_col = 'Weight per min'
                 st.session_state.worker_sort_asc = False
-            
-            # Determine if single date or date range
-            is_date_range = len(selected_dates) > 1
-            num_days = len(selected_dates)
-            
+
             unique_actions = day_df.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             unique_actions['picking_time'] = unique_actions['Action completion'] - unique_actions['Action start']
-            
+
             picker_times = unique_actions.groupby('Name')['picking_time'].sum().reset_index()
             total_picking_time_no_overlap = calculate_total_time_no_overlap(unique_actions)
-            
+
             picker_stats = day_df.groupby('Name').agg({
                 'Code': 'count',
                 'Kg': 'sum',
@@ -707,53 +769,62 @@ try:
             picker_stats.columns = ['Name', 'Requests fulfilled', 'Kilograms', 'Liters']
             picker_stats['Name'] = picker_stats['Name'].str.title()
             picker_times['Name'] = picker_times['Name'].str.title()
-            
+
             report = picker_stats.merge(picker_times, on='Name')
-            
+
             report['picking_minutes'] = report['picking_time'].dt.total_seconds() / 60
             report['Requests per minute'] = report['Requests fulfilled'] / report['picking_minutes']
             report['Total Weight'] = report['Kilograms'] + report['Liters']
             report['Weight per min'] = report['Total Weight'] / report['picking_minutes']
-            
-            # For date ranges, calculate averages per day
-            if is_date_range:
-                report['avg_picking_time'] = report['picking_time'] / num_days
-                report['Picking Time Display'] = report['avg_picking_time'].apply(format_timedelta)
-                report['Requests Display'] = (report['Requests fulfilled'] / num_days).round(1)
+
+            # Apply average mode if selected
+            if is_average_mode:
+                report['display_picking_time'] = report['picking_time'] / num_days
+                report['display_requests'] = report['Requests fulfilled'] / num_days
+                report['display_kg'] = report['Kilograms'] / num_days
+                report['display_liters'] = report['Liters'] / num_days
+                report['display_weight'] = report['Total Weight'] / num_days
             else:
-                report['Picking Time Display'] = report['picking_time'].apply(format_timedelta)
-                report['Requests Display'] = report['Requests fulfilled']
-            
-            # Sort by selected column
-            sort_col = st.session_state.worker_sort_col
-            sort_asc = st.session_state.worker_sort_asc
-            
-            if sort_col == 'Picking Time':
-                report = report.sort_values('picking_time', ascending=sort_asc).reset_index(drop=True)
-            elif sort_col in report.columns:
-                report = report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
-            
-            if is_date_range:
-                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests Display', 'Requests per minute', 
-                                 'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes', 'avg_picking_time']]
+                report['display_picking_time'] = report['picking_time']
+                report['display_requests'] = report['Requests fulfilled']
+                report['display_kg'] = report['Kilograms']
+                report['display_liters'] = report['Liters']
+                report['display_weight'] = report['Total Weight']
+
+            report['Picking Time Display'] = report['display_picking_time'].apply(format_timedelta)
+
+            # Dynamic headers based on mode
+            if is_average_mode:
+                picking_time_header = 'Avg Picking Time'
+                requests_header = 'Avg Requests'
+                kg_header = 'Avg Kg'
+                liters_header = 'Avg Liters'
+                weight_header = 'Avg Weight'
             else:
-                report = report[['Name', 'Picking Time Display', 'Requests fulfilled', 'Requests Display', 'Requests per minute', 
-                                 'Kilograms', 'Liters', 'Total Weight', 'Weight per min', 'picking_time', 'picking_minutes']]
-            
-            max_time = report['picking_time'].max().total_seconds()
-            max_requests = report['Requests fulfilled'].max()
-            max_kg = report['Kilograms'].max()
-            max_l = report['Liters'].max()
-            max_weight = report['Total Weight'].max()
-            
+                picking_time_header = 'Picking Time'
+                requests_header = 'Requests fulfilled'
+                kg_header = 'Kilograms'
+                liters_header = 'Liters'
+                weight_header = 'Total Weight'
+
+            max_time = report['display_picking_time'].max().total_seconds()
+            max_requests = report['display_requests'].max()
+            max_kg = report['display_kg'].max()
+            max_l = report['display_liters'].max()
+            max_weight = report['display_weight'].max()
+
             # Sort controls in one row
-            sort_options = ['Picking Time', 'Requests fulfilled', 'Requests per minute', 'Kilograms', 'Liters', 'Total Weight', 'Weight per min']
+            sort_options = [picking_time_header, requests_header, 'Requests per minute', kg_header, liters_header, weight_header, 'Weight per min']
+
+            # Reset sort column if it's not in current options (mode changed)
+            if st.session_state.worker_sort_col not in sort_options:
+                st.session_state.worker_sort_col = 'Weight per min'
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
                     "Sort by",
                     sort_options,
-                    index=sort_options.index(st.session_state.worker_sort_col) if st.session_state.worker_sort_col in sort_options else 6,
+                    index=sort_options.index(st.session_state.worker_sort_col),
                     key="worker_sort_select"
                 )
             with col_sort2:
@@ -763,11 +834,30 @@ try:
                     index=0 if not st.session_state.worker_sort_asc else 1,
                     key="worker_sort_order"
                 )
-            
+
             if sort_col_display != st.session_state.worker_sort_col or (sort_order == "Smallest ↑") != st.session_state.worker_sort_asc:
                 st.session_state.worker_sort_col = sort_col_display
                 st.session_state.worker_sort_asc = (sort_order == "Smallest ↑")
                 st.rerun()
+
+            # Sort by selected column
+            sort_col = st.session_state.worker_sort_col
+            sort_asc = st.session_state.worker_sort_asc
+
+            sort_col_map = {
+                picking_time_header: 'display_picking_time',
+                requests_header: 'display_requests',
+                'Requests per minute': 'Requests per minute',
+                kg_header: 'display_kg',
+                liters_header: 'display_liters',
+                weight_header: 'display_weight',
+                'Weight per min': 'Weight per min'
+            }
+            sort_by_col = sort_col_map.get(sort_col, 'Weight per min')
+            if sort_by_col == 'display_picking_time':
+                report = report.sort_values(sort_by_col, ascending=sort_asc, key=lambda x: x.apply(lambda td: td.total_seconds())).reset_index(drop=True)
+            else:
+                report = report.sort_values(sort_by_col, ascending=sort_asc).reset_index(drop=True)
             
             html = '''
             <style>
@@ -844,112 +934,130 @@ try:
             </style>
             '''
             
-            # Dynamic headers based on single date or date range
-            picking_time_header = 'Avg Picking Time' if is_date_range else 'Picking Time'
-            requests_header = 'Avg Requests' if is_date_range else 'Requests fulfilled'
-            
             headers = [
                 ('Picker', '180px'),
                 (picking_time_header, '130px'),
                 (requests_header, '120px'),
                 ('Requests per minute', '150px'),
-                ('Kilograms', '100px'),
-                ('Liters', '100px'),
-                ('Total Weight', '110px'),
+                (kg_header, '100px'),
+                (liters_header, '100px'),
+                (weight_header, '110px'),
                 ('Weight per min', '110px')
             ]
-            
+
             html += '<table class="wms-table">'
             html += '<tr>'
             for h, w in headers:
                 html += f'<th style="width: {w};">{h}</th>'
             html += '</tr>'
-            
+
             for _, row in report.iterrows():
                 html += '<tr>'
                 html += f'<td class="picker-name">{row["Name"]}</td>'
-                
-                if is_date_range:
-                    pct = (row['avg_picking_time'].total_seconds() / (max_time / num_days) * 100) if max_time > 0 else 0
-                else:
-                    pct = (row['picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
+
+                # Format values based on mode
+                requests_str = f"{row['display_requests']:.1f}" if is_average_mode else f"{int(row['display_requests'])}"
+
+                pct = (row['display_picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
                     <div class="progress-text">{row["Picking Time Display"]}</div>
                 </td>'''
-                
-                pct = (row['Requests Display'] / (max_requests / num_days if is_date_range else max_requests) * 100) if max_requests > 0 else 0
+
+                pct = (row['display_requests'] / max_requests * 100) if max_requests > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
-                    <div class="progress-text">{row["Requests Display"] if is_date_range else int(row["Requests Display"])}</div>
+                    <div class="progress-text">{requests_str}</div>
                 </td>'''
-                
+
                 html += f'<td>{row["Requests per minute"]:.2f}</td>'
-                
-                pct = (row['Kilograms'] / max_kg * 100) if max_kg > 0 else 0
+
+                pct = (row['display_kg'] / max_kg * 100) if max_kg > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #FFC000;"></div>
-                    <div class="progress-text">{row["Kilograms"]:.2f}</div>
+                    <div class="progress-text">{row["display_kg"]:.2f}</div>
                 </td>'''
-                
-                pct = (row['Liters'] / max_l * 100) if max_l > 0 else 0
+
+                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
-                    <div class="progress-text">{row["Liters"]:.2f}</div>
+                    <div class="progress-text">{row["display_liters"]:.2f}</div>
                 </td>'''
-                
-                pct = (row['Total Weight'] / max_weight * 100) if max_weight > 0 else 0
+
+                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
-                    <div class="progress-text">{row["Total Weight"]:.2f}</div>
+                    <div class="progress-text">{row["display_weight"]:.2f}</div>
                 </td>'''
-                
+
                 color = get_avg_color(row['Weight per min'])
                 html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:.2f}</td>'
-                
+
                 html += '</tr>'
-            
+
             html += '</table>'
-            
+
             # Statistics section
             total_picking_time = total_picking_time_no_overlap
-            total_requests = report['Requests fulfilled'].sum()
+            total_requests_sum = report['Requests fulfilled'].sum()
             total_minutes = total_picking_time.total_seconds() / 60
-            avg_requests_min = total_requests / total_minutes if total_minutes > 0 else 0
+            avg_requests_min = total_requests_sum / total_minutes if total_minutes > 0 else 0
             total_kg = report['Kilograms'].sum()
             total_l = report['Liters'].sum()
-            total_weight = total_kg + total_l
-            weight_per_min = total_weight / total_minutes if total_minutes > 0 else 0
-            
-            # For date ranges, show average picking time and average finish time
-            if is_date_range:
-                avg_picking_time = total_picking_time / num_days
-                total_picking_time_str = format_timedelta(avg_picking_time)
-                
-                # Calculate average picking finish time per day
+            total_weight_sum = total_kg + total_l
+            weight_per_min = total_weight_sum / total_minutes if total_minutes > 0 else 0
+
+            # For date ranges with average mode, show average values
+            if is_average_mode:
+                display_picking_time_total = total_picking_time / num_days
+                total_picking_time_str = format_timedelta(display_picking_time_total)
+                display_requests_total = total_requests_sum / num_days
+                display_kg_total = total_kg / num_days
+                display_l_total = total_l / num_days
+                display_weight_total = total_weight_sum / num_days
+            else:
+                total_picking_time_str = format_timedelta(total_picking_time)
+                display_requests_total = total_requests_sum
+                display_kg_total = total_kg
+                display_l_total = total_l
+                display_weight_total = total_weight_sum
+
+            # Calculate picking finish time (always average for date ranges)
+            if num_days > 1:
                 daily_finish = day_df.groupby('Date')['Action completion'].max()
                 finish_times = daily_finish.apply(lambda x: x.hour * 3600 + x.minute * 60 + x.second)
                 avg_seconds = finish_times.mean()
                 avg_hours = int(avg_seconds // 3600)
-                avg_minutes = int((avg_seconds % 3600) // 60)
+                avg_minutes_finish = int((avg_seconds % 3600) // 60)
                 avg_secs = int(avg_seconds % 60)
-                picking_finish_str = f"{avg_hours:02d}:{avg_minutes:02d}:{avg_secs:02d}"
                 if avg_hours < 12:
-                    picking_finish_str = f"{avg_hours:02d}:{avg_minutes:02d}:{avg_secs:02d} AM"
+                    picking_finish_str = f"{avg_hours:02d}:{avg_minutes_finish:02d}:{avg_secs:02d} AM"
                 else:
                     h = avg_hours if avg_hours <= 12 else avg_hours - 12
-                    picking_finish_str = f"{h:02d}:{avg_minutes:02d}:{avg_secs:02d} PM"
+                    picking_finish_str = f"{h:02d}:{avg_minutes_finish:02d}:{avg_secs:02d} PM"
+                picking_finish_summary_header = 'Avg Picking Finish'
             else:
-                total_picking_time_str = format_timedelta(total_picking_time)
                 picking_finish = day_df['Action completion'].max()
                 picking_finish_str = picking_finish.strftime("%I:%M:%S %p") if pd.notna(picking_finish) else ""
-            
+                picking_finish_summary_header = 'Picking Finish'
+
             # Dynamic summary headers
-            picking_time_summary_header = 'Avg Picking Time' if is_date_range else 'Total Picking Time'
-            picking_finish_summary_header = 'Avg Picking Finish' if is_date_range else 'Picking Finish'
-            
-            requests_summary_header = 'Avg Requests' if is_date_range else 'Total Requests'
-            
+            if is_average_mode:
+                picking_time_summary_header = 'Avg Picking Time'
+                requests_summary_header = 'Avg Requests'
+                kg_summary_header = 'Avg Kg'
+                l_summary_header = 'Avg L'
+                weight_summary_header = 'Avg Weight'
+            else:
+                picking_time_summary_header = 'Total Picking Time'
+                requests_summary_header = 'Total Requests'
+                kg_summary_header = 'Total Kg'
+                l_summary_header = 'Total L'
+                weight_summary_header = 'Total Weight'
+
+            # Format request display
+            requests_total_str = f"{display_requests_total:.1f}" if is_average_mode else f"{int(display_requests_total)}"
+
             html += f'''
             <table class="stats-table" style="margin-top: 15px;">
                 <tr>
@@ -957,19 +1065,19 @@ try:
                     <th>{picking_finish_summary_header}</th>
                     <th>{requests_summary_header}</th>
                     <th>Avg Requests/min</th>
-                    <th>Total Kg</th>
-                    <th>Total L</th>
-                    <th>Total Weight</th>
+                    <th>{kg_summary_header}</th>
+                    <th>{l_summary_header}</th>
+                    <th>{weight_summary_header}</th>
                     <th>Weight/min</th>
                 </tr>
                 <tr>
                     <td>{total_picking_time_str}</td>
                     <td>{picking_finish_str}</td>
-                    <td>{round(total_requests / num_days, 1) if is_date_range else int(total_requests)}</td>
+                    <td>{requests_total_str}</td>
                     <td>{avg_requests_min:.2f}</td>
-                    <td>{total_kg:,.2f}</td>
-                    <td>{total_l:,.2f}</td>
-                    <td>{total_weight:,.2f}</td>
+                    <td>{display_kg_total:,.2f}</td>
+                    <td>{display_l_total:,.2f}</td>
+                    <td>{display_weight_total:,.2f}</td>
                     <td>{weight_per_min:.2f}</td>
                 </tr>
             </table>
