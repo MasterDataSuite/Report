@@ -510,12 +510,12 @@ try:
             dept_times = unique_actions_dept.groupby('Cost Center')['picking_time'].sum().reset_index()
             
             dept_stats = day_df.groupby('Cost Center').agg({
-                'Action Code': 'nunique',
+                'Document': 'nunique',
                 'Code': 'count',
                 'Kg': 'sum',
                 'Liters': 'sum'
             }).reset_index()
-            dept_stats.columns = ['Cost Center', '# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters']
+            dept_stats.columns = ['Cost Center', '# of Orders', 'Item Requests', 'Kilograms', 'Liters']
             dept_stats['Total Weight'] = dept_stats['Kilograms'] + dept_stats['Liters']
             
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
@@ -531,14 +531,14 @@ try:
                 dept_report = dept_report.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True)
             
             max_orders = dept_report['# of Orders'].max()
-            max_requests = dept_report['Unique Item Requests'].max()
+            max_requests = dept_report['Item Requests'].max()
             max_kg = dept_report['Kilograms'].max()
             max_l = dept_report['Liters'].max()
             max_weight = dept_report['Total Weight'].max()
             max_time = dept_report['picking_time'].max().total_seconds()
             
             # Sort controls in one row
-            sort_options = ['# of Orders', 'Unique Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
+            sort_options = ['# of Orders', 'Item Requests', 'Kilograms', 'Liters', 'Total Weight', 'Total Picking Time']
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
@@ -614,7 +614,7 @@ try:
             headers = [
                 ('Cost Center', '280px', False),
                 ('# of Orders', '110px', True),
-                ('Unique Item Requests', '180px', True),
+                ('Item Requests', '180px', True),
                 ('Kilograms', '120px', True),
                 ('Liters', '120px', True),
                 ('Total Weight', '120px', True),
@@ -638,10 +638,10 @@ try:
                     <div class="progress-text">{int(row["# of Orders"])}</div>
                 </td>'''
                 
-                pct = (row['Unique Item Requests'] / max_requests * 100) if max_requests > 0 else 0
+                pct = (row['Item Requests'] / max_requests * 100) if max_requests > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #5B9BD5;"></div>
-                    <div class="progress-text">{int(row["Unique Item Requests"])}</div>
+                    <div class="progress-text">{int(row["Item Requests"])}</div>
                 </td>'''
                 
                 pct = (row['Kilograms'] / max_kg * 100) if max_kg > 0 else 0
