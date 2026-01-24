@@ -151,10 +151,17 @@ try:
     # Different UI based on mode
     if mode == "Comparison Mode":
         # Comparison Mode specific dropdowns
-        col1, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 160, 140, 140, 120, 680])
+        col1, col_agg, col2, col3, col4, col5, col6, col_load, col_empty = st.columns([220, 140, 140, 140, 160, 140, 140, 120, 540])
 
         with col1:
             comparison_type = st.selectbox("📊 Compare", ["", "All Properties", "Property vs Property"], index=0)
+
+        # Aggregation mode dropdown (Total vs Average)
+        with col_agg:
+            if comparison_type:
+                aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0)
+            else:
+                aggregation_mode = st.selectbox("📈 Mode", [""], index=0, disabled=True)
 
         # Initialize variables
         common_dates = []
@@ -206,21 +213,21 @@ try:
 
         with col4:
             if common_dates:
-                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0, key="comp_date_type")
             else:
-                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True)
+                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True, key="comp_date_type")
 
         with col5:
             if common_dates and date_type == "Single Date":
-                selected_comparison_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+                selected_comparison_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in common_dates], index=0, key="comp_date")
             elif common_dates and date_type == "Date Range":
-                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in common_dates], index=0, key="comp_start")
             else:
-                st.selectbox("📅 Date", [""], index=0, disabled=True)
+                st.selectbox("📅 Date", [""], index=0, disabled=True, key="comp_date")
 
         with col6:
             if common_dates and date_type == "Date Range":
-                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in common_dates], index=0)
+                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in common_dates], index=0, key="comp_end")
             else:
                 st.empty()
 
@@ -985,13 +992,16 @@ try:
             df2['Kg'] = df2.apply(calc_kg, axis=1)
             df2['Liters'] = df2.apply(calc_l, axis=1)
 
+            num_days = len(comparison_dates)
+            is_average_mode = aggregation_mode == "Average" and num_days > 1
+
             # Calculate metrics for Property 1
             unique_actions_1 = df1.groupby(['Name', 'Action Code']).agg({
                 'Action start': 'first',
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_1 = calculate_total_time_no_overlap(unique_actions_1)
-            
+
             # For date ranges, calculate average picking finish time per day
             if len(comparison_dates) > 1:
                 daily_finish_1 = df1.groupby('Date')['Action completion'].max()
@@ -1004,7 +1014,7 @@ try:
                 picking_finish_1 = pd.Timestamp(f"2000-01-01 {avg_hours_1:02d}:{avg_minutes_1:02d}:{avg_secs_1:02d}")
             else:
                 picking_finish_1 = df1['Action completion'].max()
-            
+
             # Unique documents (orders) for the property on selected date
             total_orders_1 = df1['Document'].nunique()
             total_requests_1 = len(df1)
@@ -1018,7 +1028,7 @@ try:
                 'Action completion': 'first'
             }).reset_index()
             total_picking_time_2 = calculate_total_time_no_overlap(unique_actions_2)
-            
+
             # For date ranges, calculate average picking finish time per day
             if len(comparison_dates) > 1:
                 daily_finish_2 = df2.groupby('Date')['Action completion'].max()
@@ -1030,7 +1040,7 @@ try:
                 picking_finish_2 = pd.Timestamp(f"2000-01-01 {avg_hours_2:02d}:{avg_minutes_2:02d}:{avg_secs_2:02d}")
             else:
                 picking_finish_2 = df2['Action completion'].max()
-            
+
             # Unique documents (orders) for the property on selected date
             total_orders_2 = df2['Document'].nunique()
             total_requests_2 = len(df2)
@@ -1038,34 +1048,80 @@ try:
             total_liters_2 = df2['Liters'].sum()
             total_weight_2 = total_kg_2 + total_liters_2
 
+            # Apply average mode if selected
+            if is_average_mode:
+                display_picking_time_1 = total_picking_time_1 / num_days
+                display_picking_time_2 = total_picking_time_2 / num_days
+                display_orders_1 = total_orders_1 / num_days
+                display_orders_2 = total_orders_2 / num_days
+                display_requests_1 = total_requests_1 / num_days
+                display_requests_2 = total_requests_2 / num_days
+                display_weight_1 = total_weight_1 / num_days
+                display_weight_2 = total_weight_2 / num_days
+            else:
+                display_picking_time_1 = total_picking_time_1
+                display_picking_time_2 = total_picking_time_2
+                display_orders_1 = total_orders_1
+                display_orders_2 = total_orders_2
+                display_requests_1 = total_requests_1
+                display_requests_2 = total_requests_2
+                display_weight_1 = total_weight_1
+                display_weight_2 = total_weight_2
+
             # Format values
-            picking_time_str_1 = format_timedelta(total_picking_time_1)
-            picking_time_str_2 = format_timedelta(total_picking_time_2)
+            picking_time_str_1 = format_timedelta(display_picking_time_1)
+            picking_time_str_2 = format_timedelta(display_picking_time_2)
             picking_finish_str_1 = picking_finish_1.strftime("%I:%M:%S %p") if pd.notna(picking_finish_1) else "N/A"
             picking_finish_str_2 = picking_finish_2.strftime("%I:%M:%S %p") if pd.notna(picking_finish_2) else "N/A"
 
-            # Date range display and column header
+            # Format orders and requests based on mode
+            if is_average_mode:
+                orders_str_1 = f"{display_orders_1:,.1f}"
+                orders_str_2 = f"{display_orders_2:,.1f}"
+                requests_str_1 = f"{display_requests_1:,.1f}"
+                requests_str_2 = f"{display_requests_2:,.1f}"
+            else:
+                orders_str_1 = f"{int(display_orders_1):,}"
+                orders_str_2 = f"{int(display_orders_2):,}"
+                requests_str_1 = f"{int(display_requests_1):,}"
+                requests_str_2 = f"{int(display_requests_2):,}"
+
+            # Date range display and column headers
             if len(comparison_dates) == 1:
                 date_display = comparison_dates[0].strftime("%d/%m/%Y")
                 picking_finish_header = "Picking Finish"
+                picking_time_header = "Total Picking Time"
+                orders_header = "# of Orders"
+                requests_header = "Item Requests"
+                weight_header = "Total Weight"
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
                 picking_finish_header = "Avg Picking Finish"
+                if is_average_mode:
+                    picking_time_header = "Avg Picking Time"
+                    orders_header = "Avg Orders"
+                    requests_header = "Avg Requests"
+                    weight_header = "Avg Weight"
+                else:
+                    picking_time_header = "Total Picking Time"
+                    orders_header = "# of Orders"
+                    requests_header = "Item Requests"
+                    weight_header = "Total Weight"
 
             # Calculate percentages for bar charts (relative to max of the two)
-            max_picking_time = max(total_picking_time_1.total_seconds(), total_picking_time_2.total_seconds(), 1)
-            max_orders = max(total_orders_1, total_orders_2, 1)
-            max_requests = max(total_requests_1, total_requests_2, 1)
-            max_weight = max(total_weight_1, total_weight_2, 1)
+            max_picking_time = max(display_picking_time_1.total_seconds(), display_picking_time_2.total_seconds(), 1)
+            max_orders = max(display_orders_1, display_orders_2, 1)
+            max_requests = max(display_requests_1, display_requests_2, 1)
+            max_weight = max(display_weight_1, display_weight_2, 1)
 
-            pct_time_1 = (total_picking_time_1.total_seconds() / max_picking_time) * 100
-            pct_time_2 = (total_picking_time_2.total_seconds() / max_picking_time) * 100
-            pct_orders_1 = (total_orders_1 / max_orders) * 100
-            pct_orders_2 = (total_orders_2 / max_orders) * 100
-            pct_requests_1 = (total_requests_1 / max_requests) * 100
-            pct_requests_2 = (total_requests_2 / max_requests) * 100
-            pct_weight_1 = (total_weight_1 / max_weight) * 100
-            pct_weight_2 = (total_weight_2 / max_weight) * 100
+            pct_time_1 = (display_picking_time_1.total_seconds() / max_picking_time) * 100
+            pct_time_2 = (display_picking_time_2.total_seconds() / max_picking_time) * 100
+            pct_orders_1 = (display_orders_1 / max_orders) * 100
+            pct_orders_2 = (display_orders_2 / max_orders) * 100
+            pct_requests_1 = (display_requests_1 / max_requests) * 100
+            pct_requests_2 = (display_requests_2 / max_requests) * 100
+            pct_weight_1 = (display_weight_1 / max_weight) * 100
+            pct_weight_2 = (display_weight_2 / max_weight) * 100
 
             # Build comparison HTML table
             html = f'''
@@ -1131,11 +1187,11 @@ try:
             <table class="comparison-table">
                 <tr>
                     <th style="width: 140px;">Property</th>
-                    <th style="width: 170px;">Total Picking Time</th>
+                    <th style="width: 170px;">{picking_time_header}</th>
                     <th style="width: 140px;">{picking_finish_header}</th>
-                    <th style="width: 140px;"># of Orders</th>
-                    <th style="width: 140px;">Item Requests</th>
-                    <th style="width: 140px;">Total Weight</th>
+                    <th style="width: 140px;">{orders_header}</th>
+                    <th style="width: 140px;">{requests_header}</th>
+                    <th style="width: 140px;">{weight_header}</th>
                 </tr>
                 <tr>
                     <td class="property-name">{property_1}</td>
@@ -1146,15 +1202,15 @@ try:
                     <td style="padding: 10px;">{picking_finish_str_1}</td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_orders_1}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{total_orders_1:,}</div>
+                        <div class="progress-text">{orders_str_1}</div>
                     </td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_requests_1}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{total_requests_1:,}</div>
+                        <div class="progress-text">{requests_str_1}</div>
                     </td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_weight_1}%; background-color: #6B9AC4;"></div>
-                        <div class="progress-text">{total_weight_1:,.2f}</div>
+                        <div class="progress-text">{display_weight_1:,.2f}</div>
                     </td>
                 </tr>
                 <tr>
@@ -1166,15 +1222,15 @@ try:
                     <td style="padding: 10px;">{picking_finish_str_2}</td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_orders_2}%; background-color: #97B8D6;"></div>
-                        <div class="progress-text">{total_orders_2:,}</div>
+                        <div class="progress-text">{orders_str_2}</div>
                     </td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_requests_2}%; background-color: #97B8D6;"></div>
-                        <div class="progress-text">{total_requests_2:,}</div>
+                        <div class="progress-text">{requests_str_2}</div>
                     </td>
                     <td class="progress-cell">
                         <div class="progress-bar" style="width: {pct_weight_2}%; background-color: #97B8D6;"></div>
-                        <div class="progress-text">{total_weight_2:,.2f}</div>
+                        <div class="progress-text">{display_weight_2:,.2f}</div>
                     </td>
                 </tr>
             </table>
@@ -1187,13 +1243,30 @@ try:
                 st.rerun()
 
         elif comparison_type == "All Properties":
-            # Date range display and column header
+            num_days = len(comparison_dates)
+            is_average_mode = aggregation_mode == "Average" and num_days > 1
+
+            # Date range display and column headers
             if len(comparison_dates) == 1:
                 date_display = comparison_dates[0].strftime("%d/%m/%Y")
                 picking_finish_header = "Picking Finish"
+                picking_time_header = "Total Picking Time"
+                orders_header = "# of Orders"
+                requests_header = "Item Requests"
+                weight_header = "Total Weight"
             else:
                 date_display = f"{comparison_dates[0].strftime('%d/%m/%Y')} - {comparison_dates[-1].strftime('%d/%m/%Y')}"
                 picking_finish_header = "Avg Picking Finish"
+                if is_average_mode:
+                    picking_time_header = "Avg Picking Time"
+                    orders_header = "Avg Orders"
+                    requests_header = "Avg Requests"
+                    weight_header = "Avg Weight"
+                else:
+                    picking_time_header = "Total Picking Time"
+                    orders_header = "# of Orders"
+                    requests_header = "Item Requests"
+                    weight_header = "Total Weight"
 
             # Calculate metrics for all properties (data is already filtered)
             property_metrics = []
@@ -1218,13 +1291,30 @@ try:
                 else:
                     picking_finish = df['Action completion'].max()
 
+                total_picking_time = calculate_total_time_no_overlap(unique_actions)
+                total_orders = df['Document'].nunique()
+                total_requests = len(df)
+                total_weight = df['Kg'].sum() + df['Liters'].sum()
+
+                # Apply average mode if selected
+                if is_average_mode:
+                    display_picking_time = total_picking_time / num_days
+                    display_orders = total_orders / num_days
+                    display_requests = total_requests / num_days
+                    display_weight = total_weight / num_days
+                else:
+                    display_picking_time = total_picking_time
+                    display_orders = total_orders
+                    display_requests = total_requests
+                    display_weight = total_weight
+
                 property_metrics.append({
                     'name': prop_name,
-                    'picking_time': calculate_total_time_no_overlap(unique_actions),
+                    'picking_time': display_picking_time,
                     'picking_finish': picking_finish,
-                    'orders': df['Document'].nunique(),
-                    'requests': len(df),
-                    'weight': df['Kg'].sum() + df['Liters'].sum()
+                    'orders': display_orders,
+                    'requests': display_requests,
+                    'weight': display_weight
                 })
 
             # Calculate max values for bar percentages
@@ -1235,17 +1325,22 @@ try:
 
             # Initialize sort state for all properties comparison
             if 'allprop_sort_col' not in st.session_state:
-                st.session_state.allprop_sort_col = 'Total Weight'
+                st.session_state.allprop_sort_col = weight_header
                 st.session_state.allprop_sort_asc = False
 
             # Sort controls
-            sort_options = ['Total Picking Time', picking_finish_header, '# of Orders', 'Item Requests', 'Total Weight']
+            sort_options = [picking_time_header, picking_finish_header, orders_header, requests_header, weight_header]
+
+            # Reset sort column if it's not in current options (mode changed)
+            if st.session_state.allprop_sort_col not in sort_options:
+                st.session_state.allprop_sort_col = weight_header
+
             col_sort1, col_sort2, col_sort3 = st.columns([2, 2, 6])
             with col_sort1:
                 sort_col_display = st.selectbox(
                     "Sort by",
                     sort_options,
-                    index=sort_options.index(st.session_state.allprop_sort_col) if st.session_state.allprop_sort_col in sort_options else 4,
+                    index=sort_options.index(st.session_state.allprop_sort_col),
                     key="allprop_sort_select"
                 )
             with col_sort2:
@@ -1263,11 +1358,11 @@ try:
 
             # Sort property_metrics
             sort_key_map = {
-                'Total Picking Time': lambda m: m['picking_time'].total_seconds(),
+                picking_time_header: lambda m: m['picking_time'].total_seconds(),
                 picking_finish_header: lambda m: m['picking_finish'].hour * 3600 + m['picking_finish'].minute * 60 + m['picking_finish'].second if pd.notna(m['picking_finish']) else 0,
-                '# of Orders': lambda m: m['orders'],
-                'Item Requests': lambda m: m['requests'],
-                'Total Weight': lambda m: m['weight']
+                orders_header: lambda m: m['orders'],
+                requests_header: lambda m: m['requests'],
+                weight_header: lambda m: m['weight']
             }
             sort_key = sort_key_map.get(st.session_state.allprop_sort_col, lambda m: m['weight'])
             property_metrics = sorted(property_metrics, key=sort_key, reverse=not st.session_state.allprop_sort_asc)
@@ -1282,12 +1377,16 @@ try:
                 time_str = format_timedelta(m['picking_time'])
                 finish_str = m['picking_finish'].strftime("%I:%M:%S %p") if pd.notna(m['picking_finish']) else "N/A"
 
+                # Format numbers based on mode
+                orders_str = f"{m['orders']:,.1f}" if is_average_mode else f"{int(m['orders']):,}"
+                requests_str = f"{m['requests']:,.1f}" if is_average_mode else f"{int(m['requests']):,}"
+
                 rows.append(f'''<tr>
                     <td class="property-name">{m['name']}</td>
                     <td class="progress-cell"><div class="progress-bar" style="width: {pct_time}%; background-color: #6B9AC4;"></div><div class="progress-text">{time_str}</div></td>
                     <td style="padding: 10px;">{finish_str}</td>
-                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_orders}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['orders']:,}</div></td>
-                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_requests}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['requests']:,}</div></td>
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_orders}%; background-color: #6B9AC4;"></div><div class="progress-text">{orders_str}</div></td>
+                    <td class="progress-cell"><div class="progress-bar" style="width: {pct_requests}%; background-color: #6B9AC4;"></div><div class="progress-text">{requests_str}</div></td>
                     <td class="progress-cell"><div class="progress-bar" style="width: {pct_weight}%; background-color: #6B9AC4;"></div><div class="progress-text">{m['weight']:,.2f}</div></td>
                 </tr>''')
 
@@ -1308,11 +1407,11 @@ try:
             <table class="comparison-table">
                 <tr>
                     <th style="width: 140px;">Property</th>
-                    <th style="width: 170px;">Total Picking Time</th>
+                    <th style="width: 170px;">''' + picking_time_header + '''</th>
                     <th style="width: 140px;">''' + picking_finish_header + '''</th>
-                    <th style="width: 140px;"># of Orders</th>
-                    <th style="width: 140px;">Item Requests</th>
-                    <th style="width: 140px;">Total Weight</th>
+                    <th style="width: 140px;">''' + orders_header + '''</th>
+                    <th style="width: 140px;">''' + requests_header + '''</th>
+                    <th style="width: 140px;">''' + weight_header + '''</th>
                 </tr>''' + ''.join(rows) + '''
             </table>
             '''
