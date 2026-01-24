@@ -968,9 +968,9 @@ try:
                     <td>{picking_finish_str}</td>
                     <td>{round(total_requests / num_days, 1) if is_date_range else int(total_requests)}</td>
                     <td>{avg_requests_min:.2f}</td>
-                    <td>{total_kg:.2f}</td>
-                    <td>{total_l:.2f}</td>
-                    <td>{total_weight:.2f}</td>
+                    <td>{total_kg:,.2f}</td>
+                    <td>{total_l:,.2f}</td>
+                    <td>{total_weight:,.2f}</td>
                     <td>{weight_per_min:.2f}</td>
                 </tr>
             </table>
@@ -1335,6 +1335,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
