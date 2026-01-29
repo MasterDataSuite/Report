@@ -706,9 +706,24 @@ try:
                 </td>'''
 
                 pct = (row['display_kg'] / max_kg * 100) if max_kg > 0 else 0
+                kg_formatted = f"{row['display_kg']:,.2f}"
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #FFC000;"></div>
-                    <div class="progress-text">{row["display_kg"]:,.2f}</div>
+                    <div class="progress-text">{kg_formatted}</div>
+                </td>'''
+                
+                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
+                liters_formatted = f"{row['display_liters']:,.2f}"
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
+                    <div class="progress-text">{liters_formatted}</div>
+                </td>'''
+                
+                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
+                weight_formatted = f"{row['display_weight']:,.2f}"
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
+                    <div class="progress-text">{weight_formatted}</div>
                 </td>'''
 
                 pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
@@ -973,9 +988,24 @@ try:
                 html += f'<td>{row["Requests per minute"]:.2f}</td>'
 
                 pct = (row['display_kg'] / max_kg * 100) if max_kg > 0 else 0
+                kg_formatted = f"{row['display_kg']:,.2f}"
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #FFC000;"></div>
-                    <div class="progress-text">{row["display_kg"]:,.2f}</div>
+                    <div class="progress-text">{kg_formatted}</div>
+                </td>'''
+                
+                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
+                liters_formatted = f"{row['display_liters']:,.2f}"
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
+                    <div class="progress-text">{liters_formatted}</div>
+                </td>'''
+                
+                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
+                weight_formatted = f"{row['display_weight']:,.2f}"
+                html += f'''<td class="progress-cell">
+                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
+                    <div class="progress-text">{weight_formatted}</div>
                 </td>'''
 
                 pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
@@ -1534,6 +1564,7 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.info("Make sure the Google Sheet is shared as 'Anyone with the link can view'")
+
 
 
 
