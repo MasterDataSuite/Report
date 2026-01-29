@@ -228,7 +228,7 @@ try:
         if date_type == "Date Range":
             col_agg, col_agg_empty = st.columns([220, 1060])
             with col_agg:
-                aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0)
+                aggregation_mode = st.selectbox("📈 Mode", ["Average", "Total"], index=0)
         else:
             aggregation_mode = "Total"
 
@@ -421,7 +421,7 @@ try:
         if date_type == "Date Range":
             col_agg_daily, col_agg_daily_empty = st.columns([165, 1115])
             with col_agg_daily:
-                daily_aggregation_mode = st.selectbox("📈 Mode", ["Total", "Average"], index=0, key="daily_agg_mode")
+                daily_aggregation_mode = st.selectbox("📈 Mode", ["Average", "Total"], index=0, key="daily_agg_mode")
         else:
             daily_aggregation_mode = "Total"
 
