@@ -1021,7 +1021,7 @@ try:
                 </td>'''
 
                 color = get_avg_color(row['Weight per min'])
-                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:.,2f}</td>'
+                html += f'<td style="background-color: {color}; font-weight: bold;">{row["Weight per min"]:,.2f}</td>'
 
                 html += '</tr>'
 
