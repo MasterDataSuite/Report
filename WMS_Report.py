@@ -665,6 +665,24 @@ try:
                     padding: 8px;
                     color: black;
                 }
+                .stats-table {
+                    border-collapse: collapse;
+                    margin-top: 30px;
+                    font-family: Arial, sans-serif;
+                }
+                .stats-table th {
+                    background-color: #4472C4;
+                    color: white;
+                    padding: 10px;
+                    border: 1px solid #2F5496;
+                }
+                .stats-table td {
+                    padding: 10px;
+                    border: 1px solid #B4C6E7;
+                    background-color: #D6DCE4;
+                    text-align: center;
+                    color: black;
+                }
             </style>
             '''
             
@@ -733,15 +751,63 @@ try:
                 </td>'''
 
                 html += '</tr>'
-            
+
             html += '</table>'
-            
+
+            # Calculate summary totals
+            total_orders_sum = dept_report['# of Orders'].sum()
+            total_requests_sum = dept_report['Item Requests'].sum()
+            total_weight_sum = dept_report['Total Weight'].sum()
+            total_picking_time = dept_report['picking_time'].sum()
+
+            # Apply average mode if selected
+            if is_average_mode:
+                display_orders_total = total_orders_sum / num_days
+                display_requests_total = total_requests_sum / num_days
+                display_weight_total = total_weight_sum / num_days
+                display_picking_time_total = total_picking_time / num_days
+                total_picking_time_str = format_timedelta(display_picking_time_total)
+                orders_header_summary = 'Avg Orders'
+                requests_header_summary = 'Avg Requests'
+                weight_header_summary = 'Avg Weight'
+                time_header_summary = 'Avg Picking Time'
+            else:
+                display_orders_total = total_orders_sum
+                display_requests_total = total_requests_sum
+                display_weight_total = total_weight_sum
+                total_picking_time_str = format_timedelta(total_picking_time)
+                orders_header_summary = 'Total Orders'
+                requests_header_summary = 'Total Requests'
+                weight_header_summary = 'Total Weight'
+                time_header_summary = 'Total Picking Time'
+
+            # Format display values
+            orders_total_str = f"{display_orders_total:,.1f}" if is_average_mode else f"{int(display_orders_total):,}"
+            requests_total_str = f"{display_requests_total:,.1f}" if is_average_mode else f"{int(display_requests_total):,}"
+
+            html += f'''
+            <table class="stats-table" style="margin-top: 15px;">
+                <tr>
+                    <th>{orders_header_summary}</th>
+                    <th>{requests_header_summary}</th>
+                    <th>{weight_header_summary}</th>
+                    <th>{time_header_summary}</th>
+                </tr>
+                <tr>
+                    <td>{orders_total_str}</td>
+                    <td>{requests_total_str}</td>
+                    <td>{display_weight_total:,.2f}</td>
+                    <td>{total_picking_time_str}</td>
+                </tr>
+            </table>
+            '''
+
             st.markdown(html, unsafe_allow_html=True)
-            
+
             if st.button("🔄 Refresh Data"):
                 st.cache_data.clear()
                 st.rerun()
-        
+
         # ============== WORKER VIEW ==============
 
         elif view_type == "Worker View":
