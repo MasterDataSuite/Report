@@ -726,18 +726,6 @@ try:
                     <div class="progress-text">{weight_formatted}</div>
                 </td>'''
 
-                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
-                html += f'''<td class="progress-cell">
-                    <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
-                    <div class="progress-text">{row["display_liters"]:,.2f}</div>
-                </td>'''
-
-                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
-                html += f'''<td class="progress-cell">
-                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
-                    <div class="progress-text">{row["display_weight"]:,.2f}</div>
-                </td>'''
-
                 pct = (row['display_picking_time'].total_seconds() / max_time * 100) if max_time > 0 else 0
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #C65B5B;"></div>
@@ -1006,18 +994,6 @@ try:
                 html += f'''<td class="progress-cell">
                     <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
                     <div class="progress-text">{weight_formatted}</div>
-                </td>'''
-
-                pct = (row['display_liters'] / max_l * 100) if max_l > 0 else 0
-                html += f'''<td class="progress-cell">
-                    <div class="progress-bar" style="width: {pct}%; background-color: #70AD47;"></div>
-                    <div class="progress-text">{row["display_liters"]:,.2f}</div>
-                </td>'''
-
-                pct = (row['display_weight'] / max_weight * 100) if max_weight > 0 else 0
-                html += f'''<td class="progress-cell">
-                    <div class="progress-bar" style="width: {pct}%; background-color: #9B59B6;"></div>
-                    <div class="progress-text">{row["display_weight"]:,.2f}</div>
                 </td>'''
 
                 color = get_avg_color(row['Weight per min'])
