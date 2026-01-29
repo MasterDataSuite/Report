@@ -228,9 +228,9 @@ try:
         if date_type == "Date Range":
             col_agg, col_agg_empty = st.columns([220, 1060])
             with col_agg:
-                aggregation_mode = st.selectbox("📈 Mode", ["Average", "Total"], index=0)
+                aggregation_mode = st.selectbox("📈 Mode", ["Average", "Total"], index=0, key="comp_agg_mode")
         else:
-            aggregation_mode = "Total"
+            aggregation_mode = "Average"
 
         # Determine if Load button should be enabled
         load_enabled = False
@@ -373,9 +373,9 @@ try:
         col2, col3, col4, col5, col6, col_load, col_empty = st.columns([165, 110, 130, 130, 130, 120, 420])
 
         with col2:
-            view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0)
+            view_type = st.selectbox("👁️ View", ["", "Department View", "Worker View"], index=0, key="daily_view_type")
         with col3:
-            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0)
+            selected_store = st.selectbox("🏪 Store", [""] + file_names, index=0, key="daily_store_select")
 
         # Cache dates in session state to avoid reloading on every interaction
         if 'cached_store' not in st.session_state:
@@ -395,9 +395,9 @@ try:
 
         with col4:
             if unique_dates:
-                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0)
+                date_type = st.selectbox("📅 Date Type", ["", "Single Date", "Date Range"], index=0, key="daily_date_type")
             else:
-                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True)
+                date_type = st.selectbox("📅 Date Type", [""], index=0, disabled=True, key="daily_date_type")
 
         selected_date = None
         start_date = None
@@ -405,15 +405,15 @@ try:
 
         with col5:
             if unique_dates and date_type == "Single Date":
-                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+                selected_date = st.selectbox("📅 Date", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0, key="daily_single_date")
             elif unique_dates and date_type == "Date Range":
-                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+                start_date = st.selectbox("📅 Start", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0, key="daily_start_date")
             else:
-                st.selectbox("📅 Date", [""], index=0, disabled=True)
+                st.selectbox("📅 Date", [""], index=0, disabled=True, key="daily_date_disabled")
 
         with col6:
             if unique_dates and date_type == "Date Range":
-                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0)
+                end_date = st.selectbox("📅 End", [""] + [d.strftime("%d/%m") for d in unique_dates], index=0, key="daily_end_date")
             else:
                 st.empty()
 
@@ -423,7 +423,7 @@ try:
             with col_agg_daily:
                 daily_aggregation_mode = st.selectbox("📈 Mode", ["Average", "Total"], index=0, key="daily_agg_mode")
         else:
-            daily_aggregation_mode = "Total"
+            daily_aggregation_mode = "Average"
 
         # Determine if Load button should be enabled
         load_enabled = False
