@@ -531,6 +531,9 @@ try:
 
             dept_report = dept_stats.merge(dept_times, on='Cost Center')
 
+            # Calculate "Real" picking time using non-overlap method (matches Worker View)
+            total_picking_time_no_overlap = calculate_total_time_no_overlap(unique_actions_dept)
+
             # Apply average mode if selected
             if is_average_mode:
                 dept_report['display_orders'] = dept_report['# of Orders'] / num_days
@@ -766,20 +769,25 @@ try:
                 display_requests_total = total_requests_sum / num_days
                 display_weight_total = total_weight_sum / num_days
                 display_picking_time_total = total_picking_time / num_days
+                display_real_picking_time_total = total_picking_time_no_overlap / num_days
                 total_picking_time_str = format_timedelta(display_picking_time_total)
+                real_picking_time_str = format_timedelta(display_real_picking_time_total)
                 orders_header_summary = 'Avg Orders'
                 requests_header_summary = 'Avg Requests'
                 weight_header_summary = 'Avg Weight'
                 time_header_summary = 'Avg Picking Time'
+                real_time_header_summary = 'Real Avg Picking Time'
             else:
                 display_orders_total = total_orders_sum
                 display_requests_total = total_requests_sum
                 display_weight_total = total_weight_sum
                 total_picking_time_str = format_timedelta(total_picking_time)
+                real_picking_time_str = format_timedelta(total_picking_time_no_overlap)
                 orders_header_summary = 'Total Orders'
                 requests_header_summary = 'Total Requests'
                 weight_header_summary = 'Total Weight'
                 time_header_summary = 'Total Picking Time'
+                real_time_header_summary = 'Real Total Picking Time'
 
             # Format display values
             orders_total_str = f"{display_orders_total:,.1f}" if is_average_mode else f"{int(display_orders_total):,}"
@@ -792,12 +800,14 @@ try:
                     <th>{requests_header_summary}</th>
                     <th>{weight_header_summary}</th>
                     <th>{time_header_summary}</th>
+                    <th>{real_time_header_summary}</th>
                 </tr>
                 <tr>
                     <td>{orders_total_str}</td>
                     <td>{requests_total_str}</td>
                     <td>{display_weight_total:,.2f}</td>
                     <td>{total_picking_time_str}</td>
+                    <td>{real_picking_time_str}</td>
                 </tr>
             </table>
             '''
